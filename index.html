@@ -127,7 +127,20 @@ dl.stats dd{margin:0;font-family:var(--f-mono);font-size:.82rem;font-variant-num
 .abil b{color:var(--ember)} .abil .pips{font-family:var(--f-mono);color:var(--ember);letter-spacing:2px;float:right}
 .abil p{margin:2px 0 0;font-size:.85rem;color:var(--ink-soft)}
 .party{display:flex;flex-direction:column;gap:8px}
-.mate{background:var(--stone-2);border:1px solid var(--line);border-radius:3px;padding:7px 9px}
+.mate{background:var(--stone-2);border:1px solid var(--line);border-radius:3px;padding:7px 9px;cursor:pointer}
+.mate:hover,.mate:focus-visible{border-color:var(--ember-dim);outline:none}
+.pack button{all:unset;box-sizing:border-box;display:flex;justify-content:space-between;gap:8px;width:100%;padding:3px 6px;margin:0 -6px;border-radius:3px;cursor:pointer}
+.pack button:hover,.pack button:focus-visible,.pack button.on{background:var(--stone-2);outline:1px solid var(--ember-dim)}
+.pack li.m button span:first-child{color:var(--mythic)}
+.pack button span:last-child{font-family:var(--f-mono);color:var(--muted);white-space:nowrap}
+.sheet h3 .hint{font-weight:400;letter-spacing:.04em;text-transform:none;color:#6d685c;margin-left:6px}
+.story .ccard2{font-family:var(--f-body);font-size:.92rem;background:var(--stone-2);border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;max-width:66ch}
+.story .ccard2 .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.story .ccard2 .top b{font-family:var(--f-display);font-weight:500;font-size:1.35rem;line-height:1}
+.story .ccard2 .top span,.story .ccard2 .sub,.story .ccard2 .stl{font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+.story .ccard2 .row{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--f-mono);font-size:.8rem;color:var(--ink-soft)}
+.story .ccard2 .row .m{color:var(--mythic)}
+.story .ccard2 .fit{color:var(--gold)}
 .mate .top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
 .mate .nm{font-family:var(--f-display);font-size:1.15rem;line-height:1}
 .mate .rl{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);white-space:nowrap}
@@ -1115,7 +1128,7 @@ Object.assign(EVENTS,{
     buyp:{fx:()=>{E.gold(-20);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'market'},
     buyf:{fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'market'},
     buym:{fx:()=>{E.gold(-25);G.pack.map++;log('You buy a Scroll of Far Sight.','loot')},next:'market'},
-    hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},o:[
+    hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},fx:ev=>{for(const id of ev.offers)logCard(previewComp(id),'Looking for work')},o:[
       {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${compTitle(ev.offers[0])}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${CLASSES[compClass(ev.offers[0])].name} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
       {l:ev=>ev.offers&&ev.offers[1]?`Hire ${COMPS[ev.offers[1]].name}, ${compTitle(ev.offers[1])}`:'',if:ev=>ev.offers&&ev.offers[1]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[1]?`${CLASSES[compClass(ev.offers[1])].name} · values ${VALUES[ev.offers[1]]} · 25 gold`:'',go:'h1'},
       {l:ev=>ev.offers&&ev.offers[2]?`Hire ${COMPS[ev.offers[2]].name}, ${compTitle(ev.offers[2])}`:'',if:ev=>ev.offers&&ev.offers[2]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[2]?`${CLASSES[compClass(ev.offers[2])].name} · values ${VALUES[ev.offers[2]]} · 25 gold`:'',go:'h2'},
@@ -1175,11 +1188,44 @@ function processQueue(){
 function owns(id){return G.pack.weapons.some(w=>w.id===id)||G.party.some(m=>m.weapon.id===id)}
 function evNode(){return G.ev&&EVENTS[G.ev.id].nodes[G.ev.node]}
 const txt=(v,ev)=>typeof v==='function'?v(ev):v;
+const TANKS=new Set(['fighter','paladin','barbarian']),HEALERS=new Set(['cleric','bard']);
+function previewComp(id){return G.party.find(m=>m.id===id)||makeComp(id)}
+function fitNote(m){
+  const others=G.party.filter(p=>p!==m),cks=others.map(ckOf),ck=ckOf(m),notes=[];
+  const same=others.filter(p=>ckOf(p)===ck);
+  if(same.length)notes.push(`You already have a ${CLASSES[ck].name.toLowerCase()} (${same.map(p=>p.hero?'you':p.name).join(', ')}).`);
+  if(HEALERS.has(ck)&&!cks.some(c=>HEALERS.has(c)))notes.push(`Would be your party\u2019s only healer.`);
+  else if(HEALERS.has(ck))notes.push('Adds more healing.');
+  if(TANKS.has(ck)&&!cks.some(c=>TANKS.has(c)))notes.push('Would hold the front line. No one else in the party wears heavy armor.');
+  if(CASTER.has(ck)&&!cks.some(c=>CASTER.has(c)))notes.push('Brings spells to a party that has none.');
+  if(ck==='rogue'||ck==='ranger')notes.push('Moves quietly, so does not make sneaking harder.');
+  if(!HEALERS.has(ck)&&!cks.some(c=>HEALERS.has(c))&&ck!=='druid')notes.push('Nobody in the party can heal yet.');
+  const v=VALUES[m.id],clash=comps().filter(c=>c!==m&&({mercy:['gold','strength'],honour:['gold'],faith:['gold'],gold:['mercy','honour','faith'],strength:['mercy']}[v]||[]).includes(VALUES[c.id]));
+  if(clash.length)notes.push(`Values ${v}, which may clash with ${listJoin(clash.map(c=>c.name))}.`);
+  return notes.join(' ');
+}
+function compCard(m,heading){
+  const C=CLASSES[ckOf(m)],w=WEAPONS[m.weapon.id],inParty=G.party.includes(m);
+  const st=STATS.map(k=>`${k.toUpperCase()} ${sgn(m.stats[k])}`).join(' · ');
+  return `<div class="ccard2"><div class="top"><b style="color:${COMPS[m.id].col}">${m.name}</b><span>${heading||(inParty?'In your party':'Could join you')}</span></div>
+  <div class="sub">${cap(m.title)} · ${COMP_BUILDS[m.id].species}</div>
+  <div class="row"><span><b>${C.name}</b></span><span>HP ${inParty?m.hp+'/':''}${m.maxhp}</span><span>AC ${ac(m)}</span><span class="${w.mythic?'m':''}">${cap(wname(m.weapon))} ${wdice(m,m.weapon)}</span></div>
+  <div class="stl">${st}</div>
+  <div><b>${C.abil.name}:</b> ${C.abil.desc}</div>
+  <div><b>Values ${VALUES[m.id]}:</b> ${VALUE_HINT[VALUES[m.id]]}${inParty?` Currently <b>${LOYAL_WORD(m.loyalty)}</b>.`:''}</div>
+  ${fitNote(m)?`<div class="fit">${fitNote(m)}</div>`:''}</div>`;
+}
+function logCard(m,heading){G.log.push({t:'card',html:compCard(m,heading)})}
 function startEvent(id,data={}){
   G.ev={id,room:G.cur,node:'start',waiting:false,after:null,...data};
   if(!EVENTS[id].repeat&&!G.done.includes(id))G.done.push(id);
   const def=EVENTS[id];if(def.init)def.init(G.ev);
   evGo('start');
+  if(!G.ev||G.ev.id!==id)return;
+  const rid=recruitId(id);
+  if(rid&&!G.party.some(m=>m.id===rid))logCard(previewComp(rid));
+  if(id==='swap'){logCard(previewComp(G.ev.newId),'Wants to join');for(const c of comps())logCard(c)}
+  if(id==='dismiss'){const c=G.party.find(m=>m.id===G.ev.who);if(c)logCard(c)}
 }
 function evGo(id){
   const ev=G.ev,node=EVENTS[ev.id].nodes[id];ev.node=id;
@@ -1206,7 +1252,7 @@ function pickEvents(){
   while(out.length<target&&(other.length||rec.length))out.push(other.length?other.shift():rec.shift());
   return out;
 }
-function recruitId(evId){return{novice:'nell',diver:'oskar',knight:'ilvar',gargoyle:'zeph',smith:'brannoc',priest:'ysolde',kobold:'pip',ranger:'maren',witch:'tessaly',sellsword:'corvin'}[evId]}
+function recruitId(evId){if(evId==='warband')return E.has('orc_friend')?'gruk':null;return{novice:'nell',diver:'oskar',knight:'ilvar',gargoyle:'zeph',smith:'brannoc',priest:'ysolde',kobold:'pip',ranger:'maren',witch:'tessaly',sellsword:'corvin'}[evId]}
 function genFloor(){
   const d=G.depth,N=Math.min(13,7+Math.ceil((d+(G.chapter||0)*3)/2)),rooms={},list=[];
   const mk=(x,y)=>{const r={x,y,exits:{},mons:[],items:[],feature:null,hidden:null,visited:false,seen:false,searched:false,stairs:false,throne:false,event:null,name:'',desc:[]};rooms[key(x,y)]=r;list.push(r);return r};
@@ -1712,6 +1758,7 @@ function buildChoices(){
   if(G.over){add('Begin a new legend',()=>{G=null;titleState={stage:'class',cls:null};showTitle()},{cmds:['new','restart','again','new game'],kind:'prime',echo:false});return C}
   const h=H(),r=room(),aware=r.mons.filter(m=>m.aware),unaware=r.mons.filter(m=>!m.aware),c=CLASSES[h.cls];
   const healTargets=G.party.filter(m=>m.down||m.hp<m.maxhp);
+  if(G.menu&&G.menu.type==='item'){itemChoices(add,aware.length>0);return C}
   if(aware.length){
     for(const m of r.mons)add(`Attack ${theM(m)}`,()=>strike(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,(m.tag?m.tag+' ':'')+m.name],sub:`${hpWord(m)} · AC ${m.ac} · your ${wname(h.weapon)} ${wdice(h,h.weapon)}`,kind:'fight',combat:true});
     if(r.mons.some(m=>m.k==='king'))add('Burn the Hollow King with your torch',()=>strike(h,r.mons.find(m=>m.k==='king'),{torch:true}),{cmds:['torch','burn','burn king'],sub:'Weak hit, but fire stops him healing this round',kind:'fight',combat:true});
@@ -1888,6 +1935,7 @@ function renderEntry(e){
   if(e.t==='scene')return `<div class="scene"><h2>${e.eyebrow?`<small>${e.eyebrow}</small>`:''}${e.title}</h2>${e.paras.map(p=>`<p>${p}</p>`).join('')}</div>`;
   if(e.t==='cmd')return `<p class="cmd">&gt; ${escHTML(e.text)}</p>`;
   if(e.t==='pre')return `<pre>${escHTML(e.text)}</pre>`;
+  if(e.t==='card')return e.html;
   if(!e.text)return '';
   return `<p class="${e.cls}">${e.text}${e.detail?`<span class="d">${e.detail}</span>`:''}</p>`;
 }
@@ -1920,19 +1968,51 @@ function renderSheet(){
   </dl>
   <div class="wpn"><b class="${wd.mythic?'m':''}">${cap(wname(h.weapon))}</b> · ${wdice(h,h.weapon)}${wd.lore?`<br><span style="color:var(--muted);font-size:.8rem">${wd.lore}</span>`:''}</div>
   <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p></div>
-  <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
-  <div><h3>Pack</h3><ul class="pack">
-    <li class="${G.pack.potion?'':'zero'}"><span>Healing Draught</span><span>× ${G.pack.potion}</span></li>
-    <li class="${G.pack.fire?'':'zero'}"><span>Scroll of Cinders</span><span>× ${G.pack.fire}</span></li>
-    <li class="${G.pack.map?'':'zero'}"><span>Scroll of Far Sight</span><span>× ${G.pack.map}</span></li>
-    ${G.pack.weapons.map(w=>`<li class="${WEAPONS[w.id].mythic?'m':''}"><span>${cap(wname(w))}</span><span>${dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus)}</span></li>`).join('')}
+  <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
+  <div><h3>Pack <span class="hint">tap an item to use it</span></h3><ul class="pack">
+    ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight']].map(([k,n])=>G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
+    ${G.pack.weapons.map((w,i)=>`<li class="${WEAPONS[w.id].mythic?'m':''}"><button type="button" data-item="w${i}" class="${G.menu&&G.menu.item==='w'+i?'on':''}"><span>${cap(wname(w))}</span><span>${dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus)}</span></button></li>`).join('')}
     ${E.has('hilt')&&!E.has('kingsbane')?`<li class="m"><span>Hilt of Kingsbane</span><span>broken</span></li>`:''}
   </ul></div>
   <div><h3>${G.cur==='town'?'Ashmoor':'Map of floor '+G.depth}</h3><pre class="map">${mapText(true)}</pre><div class="legend">@ you · ■ explored · ? unexplored · ! foes · ◆ encounter · ▼ stairs</div></div>`;
 }
 
 /* ---------- input ---------- */
-$('#sheet').addEventListener('click',e=>{const b=e.target.closest('[data-diff]');if(b&&G)setDiff(+b.dataset.diff)});
+$('#sheet').addEventListener('click',e=>{
+  const b=e.target.closest('[data-diff]');if(b&&G){setDiff(+b.dataset.diff);return}
+  const it=e.target.closest('[data-item]');if(it&&G&&!G.over){openItem(it.dataset.item);return}
+  const mt=e.target.closest('[data-mate]');if(mt&&G){const c=G.party.find(m=>m.id===mt.dataset.mate);if(c){logCard(c);render()}}
+});
+$('#sheet').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('[data-mate]')){e.preventDefault();e.target.click()}});
+function openItem(key){
+  G.menu={type:'item',item:key};
+  if(key[0]==='w'){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
+    log(`${cap(wname(w))}: ${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''}. ${d.lore||(d.stat==='finesse'?'Uses Strength or Dexterity, whichever is higher.':d.stat==='int'?'Uses Intelligence.':d.stat==='wis'?'Uses Wisdom.':d.stat==='dex'?'Uses Dexterity.':'Uses Strength.')}`,'sys')}
+  else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
+  const fight=room().mons.some(m=>m.aware);
+  if(key==='fire'&&!room().mons.length)log('There is nothing here to burn. Save it for a fight.','sys');
+  if(key==='map'&&G.farSight)log('You can already see this whole floor.','sys');
+  if(key[0]==='w'&&fight)log('There is no time to change weapons in the middle of a fight.','sys');
+  render();
+  if(matchMedia('(max-width:880px)').matches)$('#choices').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function itemChoices(add,inFight){
+  const key=G.menu.item,h=H(),back=()=>{G.menu=null};
+  if(key==='potion'&&G.pack.potion>0){
+    add('Drink it yourself',()=>{back();drink()},{sub:`${h.hp}/${h.maxhp} HP`,combat:inFight,kind:'prime'});
+    for(const m of comps())add(`Give it to ${m.name}`,()=>{back();drink(m)},{sub:m.down?'Fallen: gets them back up':`${m.hp}/${m.maxhp} HP`,combat:inFight});
+  }else if(key==='fire'&&G.pack.fire>0){
+    if(room().mons.length)add('Read it now',()=>{back();readCinders()},{sub:`Burns ${listJoin(room().mons.map(theM))}`,combat:true,kind:'prime'});
+  }else if(key==='map'&&G.pack.map>0){
+    if(!G.farSight)add('Read it now',()=>{back();readFarSight()},{sub:'Reveal this floor',kind:'prime'});
+  }else if(key[0]==='w'){
+    const i=+key.slice(1),w=G.pack.weapons[i];
+    if(w&&!inFight){add('Equip it yourself',()=>{back();equip(i,h)},{sub:`now: ${wname(h.weapon)} ${wdice(h,h.weapon)} → ${wdice(h,w)}`,kind:'prime'});
+      for(const m of comps())add(`Give it to ${m.name}`,()=>{back();equip(i,m)},{sub:`${CLASSES[ckOf(m)].name} · now ${wname(m.weapon)} ${wdice(m,m.weapon)} → ${wdice(m,w)}`});
+      add('Drop it',()=>{back();G.pack.weapons.splice(i,1);log(`You leave the ${wname(w)} behind.`,'sys')},{sub:'Gone for good'});}
+  }
+  add('Close the pack',back,{echo:false});
+}
 $('#choices').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b)runChoice(choiceCache[+b.dataset.i])});
 $('#cmdform').addEventListener('submit',e=>{e.preventDefault();const i=$('#cmd'),v=i.value;i.value='';runCommand(v)});
 
