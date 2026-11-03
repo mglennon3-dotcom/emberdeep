@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 24</p>
+  <p class="build">Emberdeep · build 25</p>
 </div>
 
 <script>
@@ -749,7 +749,7 @@ const E={
   give(id){G.pack.weapons.push({id,plus:0});const d=WEAPONS[id];log(`You gain ${d.name}. ${d.lore}`,'mythic');log(`Equip it, or hand it to a companion, from Party & gear.`,'sys')},
   item(k){take(newItem(k),true)},
   gold(n){if(n==null)return G.gold;G.gold=Math.max(0,G.gold+n);return G.gold},
-  dmg(n,d,b=0,what='a wound'){const h=H(),x=roll(n,d,b);h.hp-=x;log(`You take ${x} damage.`,'hurt',dstr(n,d,b));if(h.hp<=0){h.hp=0;die(what)}return x},
+  dmg(n,d,b=0,what='a wound'){const h=H(),x=roll(n,d,b);h.hp-=x;log(`You take ${x} damage.`,'hurt',dstr(n,d,b));if(h.hp<=0){const over=-h.hp;h.hp=0;if(room().mons.some(m=>m.aware))heroDown(over,what);else downOutOfCombat(over,what)}return x},
   healAll(){for(const m of G.party){m.down=false;m.hp=m.maxhp}},
   maxhp(n){const h=H();h.bonusHP+=n;h.maxhp=calcMax(h);h.hp=Math.min(h.maxhp,h.hp+Math.max(0,n));if(h.hp<=0){h.hp=1}},
   flag(k){G.flags[k]=true},has:k=>!!G.flags[k],
@@ -1494,7 +1494,7 @@ function monAttack(m){
   if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
   t.hp-=dmg;G.fightDmg=G.fightDmg||{};G.fightDmg[t.hero?'you':t.name]=(G.fightDmg[t.hero?'you':t.name]||0)+dmg;
   log(`${cap(theM(m))} ${crit?'lands a brutal blow on':'hits'} ${tn} for ${dmg} damage${crit?'!':'.'}`,t.hero?'hurt':'threat',`${det} · ${dstr(crit?n*2:n,d,b)}`);
-  if(t.hp<=0){t.hp=0;if(t.hero)die(m.boss?'the Hollow King':`a ${m.name}`);else{t.down=true;log(`${t.name} falls!`,'hurt')}}
+  if(t.hp<=0){const over=-t.hp;t.hp=0;if(t.hero)heroDown(over,m.boss?theM(m):`a ${m.name}`);else{t.down=true;log(`${t.name} falls!`,'hurt')}}
 }
 function monstersAct(){
   for(const m of room().mons.slice()){
@@ -1525,6 +1525,19 @@ const isHealer=c=>!c.hero&&!c.down&&c.charges>0&&['cleric','bard'].includes(ckOf
 function compAct(c){
   const foes=room().mons;if(!foes.length)return;
   const ck=ckOf(c);if(c.charges==null)c.charges=c.heals??2;
+  const hh=H();
+  if(hh.down&&!G._rescue){
+    if(ck==='cleric'&&c.charges>0){G._rescue=1;compHeal(c,hh);return}
+    if(ck==='bard'&&c.charges>0){G._rescue=1;compSong(c);return}
+    const healerComing=comps().some(o=>o!==c&&!o.down&&['cleric','bard'].includes(ckOf(o))&&o.charges>0);
+    if(!healerComing){
+      if(G.pack.potion>0){G._rescue=1;G.pack.potion--;const x=roll(2,4,2+G.depth);hh.down=false;hh.hp=Math.min(hh.maxhp,x);G.ds=null;
+        log(`${c.name} kneels beside you and pours a Healing Draught down your throat. You come to, coughing. (${hh.hp} HP)`,'heal',dstr(2,4,2+G.depth));return}
+      if(G.ds&&!G.ds.stable){G._rescue=1;const rl=roll(1,20),tot=rl+c.stats.wis,det=`Medicine d20 ${rl}${sgn(c.stats.wis)}=${tot} vs DC 10`;
+        if(tot>=10){G.ds.stable=true;log(`${c.name} presses down hard on your wounds and stops the bleeding. You are stable.`,'heal',det)}
+        else log(`${c.name} tries to stop your bleeding, but can\u2019t.`,'miss',det);return}
+    }
+  }
   if(c.plan){const pl=c.plan;c.plan=null;
     if(pl.heal&&c.charges>0){const t=G.party.find(m=>m.id===pl.heal);if(t&&(t.down||t.hp<t.maxhp)){compHeal(c,t);return}}
     if(pl.song&&c.charges>0){compSong(c);return}}
@@ -1584,7 +1597,7 @@ function wyrmBreath(){
   for(const m of living()){const base=roll(6,6),rl=roll(1,20),sv=rl+m.stats.dex+(m.hero&&EXPERTISE[m.cls]==='dex'?3:0),half=sv>=16;let d=half?Math.floor(base/2):base;
     if(m.temp>0){const a=Math.min(m.temp,d);m.temp-=a;d-=a}
     m.hp-=d;log(`${m.hero?'You':m.name} ${half?'dive aside and take':'take'} ${d} fire damage.`,m.hero?'hurt':'threat',`DEX save d20 ${rl}${sgn(sv-rl)}=${sv} vs DC 16 · 6d6${half?' halved':''}`);
-    if(m.hp<=0){m.hp=0;if(m.hero){die('Vharzhul\u2019s fire');return}m.down=true;log(`${m.name} falls!`,'hurt')}}
+    if(m.hp<=0){const over=-m.hp;m.hp=0;if(m.hero){heroDown(over,'Vharzhul\u2019s fire');if(G.over)return;continue}m.down=true;log(`${m.name} falls!`,'hurt')}}
 }
 function bossRegen(){
   wyrmBreath();if(G.over)return;
@@ -1594,11 +1607,12 @@ function bossRegen(){
   b.scorched=false;
 }
 function round(){
-  if(G.over)return;const r=room();
+  if(G.over)return;const r=room();G._rescue=0;
   if(r.mons.some(m=>m.aware)){
     for(const c of comps()){if(G.over||!r.mons.length)break;if(!c.down)compAct(c)}
     if(r.mons.length)monstersAct();
     if(!G.over)bossRegen();
+    if(!G.over&&H().down&&!comps().some(c=>!c.down)){log('The last of your companions falls beside you.','hurt');die(G.ds?G.ds.by:'the dark');return}
     if(!G.over&&r.mons.length&&!G.reinforced&&comps().length>=2&&!r.throne&&Math.random()<.06*comps().length){
       G.reinforced=true;const m=spawn(encounter({mult:.25,max:1}),true)[0];
       log(`Drawn by the noise of battle, ${theM(m).replace(/^the (first |second |third |fourth |fifth )?/,'a ')} charges in to join the fight!`,'threat');}
@@ -1607,6 +1621,7 @@ function round(){
   if(!G.over&&!r.mons.length&&G.fighting)afterFight();
 }
 function afterFight(){
+  if(H().down){const h=H();h.down=false;h.hp=Math.max(1,h.hp);G.ds=null;log('The fight is over. Your companions bind your wounds and bring you round. (1 HP)','heal')}
   G.fighting=false;G.reinforced=false;for(const p of G.party)p.rage=0;
   const fd=G.fightDmg||{},tot=Object.values(fd).reduce((a,b)=>a+b,0);G.fightDmg={};
   log(tot?`The fighting is over. It cost the party ${tot} HP: ${Object.entries(fd).sort((a,b)=>b[1]-a[1]).map(([n,d])=>`${n} ${d}`).join(', ')}.`:'The fighting is over. Nobody took a scratch.','sys');
@@ -1667,6 +1682,34 @@ function flee(){
     enterRoom(back);return true;
   }
   log(`You try to break away, but they cut you off.`,'hurt',det);return false;
+}
+function heroDown(over,by){
+  const h=H();h.hp=0;h.rage=0;
+  if(over>=h.maxhp){log(`The blow is so savage that you die before you hit the ground.`,'big','massive damage');die(by);return}
+  const helpers=comps().filter(c=>!c.down);
+  if(!helpers.length){die(by);return}
+  h.down=true;G.ds={s:0,f:0,stable:false,by};
+  log(`You fall unconscious! ${listJoin(helpers.map(c=>c.name))} ${helpers.length>1?'are':'is'} still standing. Each turn you make a death saving throw.`,'big');
+}
+function deathSave(){
+  const h=H(),ds=G.ds||(G.ds={s:0,f:0,stable:false,by:'your wounds'});
+  if(ds.stable){log('You lie still. Unconscious, but stable.','sys');return}
+  const rl=roll(1,20);
+  if(rl===20){h.down=false;h.hp=1;G.ds=null;log('Natural 20! You gasp awake and stagger to your feet with 1 HP.','crit','death save d20 20');return}
+  if(rl>=10)ds.s++;else ds.f+=(rl===1?2:1);
+  log(`Death saving throw: ${rl>=10?'success':'failure'}${rl===1?'. A natural 1 counts as two failures':''}.`,rl>=10?'heal':'hurt',`d20 ${rl} vs 10 · successes ${ds.s}/3 · failures ${Math.min(3,ds.f)}/3`);
+  if(ds.f>=3){die(ds.by);return}
+  if(ds.s>=3){ds.stable=true;log('The bleeding slows and stops. You are unconscious, but stable.','heal')}
+}
+function downOutOfCombat(over,by){
+  const h=H();h.hp=0;
+  if(over>=h.maxhp){log('The wound is too much. You die before you hit the ground.','big','massive damage');die(by);return}
+  const helpers=comps().filter(c=>!c.down);
+  if(helpers.length){h.hp=1;log(`You collapse. ${helpers[0].name} catches you, binds your wounds, and brings you round. (1 HP)`,'heal');return}
+  let s=0,f=0;const rolls=[];
+  while(s<3&&f<3){const rl=roll(1,20);rolls.push(rl);if(rl===20){h.hp=1;log(`You collapse alone in the dark, then gasp awake with 1 HP.`,'crit',`death saves: ${rolls.join(', ')}`);return}if(rl>=10)s++;else f+=rl===1?2:1}
+  if(f>=3){log('You collapse alone in the dark, and no one comes.','hurt',`death saves: ${rolls.join(', ')}`);die(by);return}
+  h.hp=1;log('You collapse alone in the dark. Some time later, you wake with 1 HP.','heal',`death saves: ${rolls.join(', ')}`);
 }
 function die(by){
   G.over={win:false,by};
@@ -1832,6 +1875,11 @@ function buildChoices(){
   if(G.over){add('Begin a new legend',()=>{G=null;titleState={stage:'class',cls:null};showTitle()},{cmds:['new','restart','again','new game'],kind:'prime',echo:false});return C}
   const h=H(),r=room(),aware=r.mons.filter(m=>m.aware),unaware=r.mons.filter(m=>!m.aware),c=CLASSES[h.cls];
   const healTargets=G.party.filter(m=>m.down||m.hp<m.maxhp);
+  if(h.down){
+    const ds=G.ds||{s:0,f:0,stable:false};
+    if(aware.length){add(ds.stable?'Lie still':'Make a death saving throw',()=>deathSave(),{sub:ds.stable?'You are stable. Your companions fight on.':`d20, 10 or higher succeeds · successes ${ds.s}/3 · failures ${Math.min(3,ds.f)}/3`,kind:'fight',combat:true});return C}
+    h.down=false;h.hp=Math.max(1,h.hp);G.ds=null;
+  }
   if(G.menu&&G.menu.type==='item'){itemChoices(add,aware.length>0);return C}
   if(!aware.length){
   if(G.menu==='gear'){
@@ -2051,7 +2099,7 @@ function renderSheet(){
   S.innerHTML=`
   <div class="diff" role="group" aria-label="Difficulty">${DIFFS.map((d,i)=>`<button type="button" data-diff="${i}" class="${i===(G.diff??1)?'on':''}" aria-pressed="${i===(G.diff??1)}">${d.name}</button>`).join('')}</div>
   <div class="who"><span class="cn" style="color:${c.col}">${escHTML(h.name)}</span><span class="lv">${c.name} · Level ${G.lvl}</span></div>
-  <div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${h.hp} / ${h.maxhp} HP</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
+  <div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${h.down?`Unconscious · saves ${(G.ds||{}).s||0}✓ ${Math.min(3,(G.ds||{}).f||0)}✗${(G.ds||{}).stable?' · stable':''}`:`${h.hp} / ${h.maxhp} HP`}</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
   <div class="scores">${STATS.map(s=>`<div class="score"><small>${s.toUpperCase()}</small><b>${10+h.stats[s]*2}</b><em>${sgn(h.stats[s])}</em></div>`).join('')}</div>
   <dl class="stats">
     <div><dt>Armor Class</dt><dd>${ac(h)}${h.ward?' +ward':''}</dd></div>
