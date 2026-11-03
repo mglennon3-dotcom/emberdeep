@@ -273,6 +273,34 @@ const COMP_BUILDS={
 };
 const CLASS_ROLE={barbarian:'tank',fighter:'tank',paladin:'tank',cleric:'healer',bard:'support',druid:'shifter',monk:'striker',ranger:'archer',rogue:'skirmisher',sorcerer:'caster',warlock:'caster',wizard:'caster'};
 function compClass(id){G.compClass=G.compClass||{};if(!G.compClass[id])G.compClass[id]=pick(Object.keys(CLASSES));return G.compClass[id]}
+const CF={
+  barbarian:{noun:'berserker',skill:'I can break anything the dark sends at us',offer:'break things for you'},
+  bard:{noun:'bard',skill:'I can keep your spirits up and your enemies off balance',offer:'sing you through the dark'},
+  cleric:{noun:'priest',skill:'I can mend what the dark breaks',offer:'patch up your wounds'},
+  druid:{noun:'druid',skill:'I can wear the shape of a bear when it counts',offer:'turn into a bear for you'},
+  fighter:{noun:'warrior',skill:'I can hold a line against anything',offer:'hold the line for you'},
+  monk:{noun:'monk',skill:'I need no weapon but my hands',offer:'break bones with my bare hands for you'},
+  paladin:{noun:'paladin',skill:'I can stand between you and the dark',offer:'smite things for you'},
+  ranger:{noun:'ranger',skill:'I can track anything down here, and shoot it',offer:'shoot things for you'},
+  rogue:{noun:'thief',skill:'I can open any lock and find any trap',offer:'stab things in the back for you'},
+  sorcerer:{noun:'sorcerer',skill:'There is fire in my blood, and I can set the dark alight',offer:'set things on fire for you'},
+  warlock:{noun:'warlock',skill:'Something old lends me its power. It is hungry, but it is generous',offer:'curse things for you'},
+  wizard:{noun:'wizard',skill:'I know a spell for most problems',offer:'set things on fire for you'},
+};
+const PR={brannoc:['he','his'],ysolde:['she','her'],pip:['he','his'],maren:['she','her'],tessaly:['she','her'],corvin:['he','his'],gruk:['he','his'],nell:['she','her'],oskar:['he','his'],ilvar:['he','his'],zeph:['he','his']};
+const CASTER=new Set(['sorcerer','warlock','wizard']);
+const cw=id=>WEAPONS[CLASSES[compClass(id)].weapon].name;
+const noun=id=>CF[compClass(id)].noun, skill=id=>CF[compClass(id)].skill, offer=id=>CF[compClass(id)].offer;
+function ready(id){const p=PR[id][1];return{barbarian:`hefts ${p} greataxe onto ${p} shoulder`,bard:`tunes ${p} lute and checks the edge of ${p} rapier`,cleric:`touches ${p} holy symbol and lifts ${p} mace`,druid:`leans on ${p} gnarled club and sniffs the air`,fighter:`draws ${p} longsword and tests its balance`,monk:`wraps ${p} fists in fresh cloth`,paladin:`kisses the hilt of ${p} sword`,ranger:`strings ${p} bow`,rogue:`checks ${p} knives, all eleven of them`,sorcerer:`snaps ${p} fingers, and a small flame dances there`,warlock:`glances at nothing over ${p} shoulder, and nods`,wizard:`tucks ${p} spellbook under ${p} arm`}[compClass(id)]}
+function after(id){const p=PR[id][1];return{barbarian:`wipes ${p} greataxe clean`,bard:`hums a few bars of a victory song`,cleric:`murmurs a prayer over the dead`,druid:`shakes the last of the fight out of ${p} shoulders`,fighter:`cleans ${p} blade`,monk:`bows to the fallen`,paladin:`cleans ${p} sword and says a short prayer`,ranger:`retrieves ${p} arrows`,rogue:`goes through the pockets of the dead`,sorcerer:`blows out the flame on ${p} fingertip`,warlock:`listens to a voice no one else can hear`,wizard:`makes a quick note in ${p} spellbook`}[compClass(id)]}
+function grab(id){const ck=compClass(id),p=PR[id][1];return ck==='monk'?`cracks ${p} knuckles`:CASTER.has(ck)?`lets sparks crawl across ${p} fingers`:ck==='druid'?'snatches up a stout club':`snatches up a ${cw(id)}`}
+function gear(id){return{monk:'pack',wizard:'spellbook',sorcerer:'pack',warlock:'pack',ranger:'bow',druid:'club'}[compClass(id)]||cw(id)}
+function firstHit(id){const ck=compClass(id),p=PR[id][1];return ck==='ranger'?'puts an arrow in the ghoul\u2019s shoulder':CASTER.has(ck)?'hurls a crackle of magic into the ghoul\u2019s side':ck==='monk'?'kicks the ghoul square in the chest':ck==='druid'?`cracks the ghoul across the skull with ${p} club`:`drives ${p} ${cw(id)} into the ghoul\u2019s shoulder`}
+function threat(id){const ck=compClass(id);return ck==='ranger'?'aiming a longbow almost as big as he is':CASTER.has(ck)?'with sparks fizzing between his claws':ck==='monk'?'in a fighting stance that is mostly bluff':ck==='druid'?'brandishing a club almost as big as he is':`waving a ${cw(id)} almost as big as he is`}
+function disarm(id){const ck=compClass(id);return CASTER.has(ck)?'lets the sparks die':ck==='monk'?'drops his stance':ck==='druid'?'drops the club':`drops the ${cw(id)}`}
+function hitRun(id){const ck=compClass(id);return ck==='ranger'?'shoots you in the leg':CASTER.has(ck)?'zaps you with a spark':ck==='monk'?'kicks you in the shin':`jabs you in the leg with his ${ck==='druid'?'club':cw(id)}`}
+function beside(id){const ck=compClass(id);return ck==='monk'?'His fists are wrapped in old leather.':CASTER.has(ck)?'A spell focus hangs at his belt, humming faintly.':ck==='ranger'?'A longbow leans beside him.':ck==='druid'?'A gnarled club leans beside him.':`A ${cw(id)} leans beside him.`}
+function compTitle(id){const ck=compClass(id),n=CF[ck].noun;return{brannoc:`dwarf ${n}`,ysolde:`${n} of the Lantern`,pip:'kobold turncoat',maren:`${n} of the Thornwood`,tessaly:['wizard','sorcerer','warlock','druid'].includes(ck)?'hedge-witch':`old ${n}`,corvin:`${n} for hire`,gruk:'orc deserter',nell:`novice ${n}`,oskar:'salvage diver',ilvar:'exiled dragon-hunter',zeph:'gargoyle'}[id]||COMPS[id].title}
 const ckOf=c=>c.hero?c.cls:(c.ck||({Fighter:'fighter',Cleric:'cleric',Rogue:'rogue',Ranger:'ranger',Wizard:'wizard',Barbarian:'barbarian',Paladin:'paladin',Gargoyle:'barbarian'})[c.cls]||'fighter');
 function migrate(g){for(const c of g.party.slice(1)){if(!c.ck){c.ck=ckOf(c);c.charges=c.heals??2}}}
 const VALUES={nell:'faith',oskar:'gold',ilvar:'honour',zeph:'freedom',brannoc:'honour',ysolde:'mercy',pip:'gold',maren:'nerve',tessaly:'cleverness',corvin:'pay',gruk:'strength'};
@@ -574,7 +602,7 @@ function scene(title,eyebrow,paras){G.log.push({t:'scene',title,eyebrow,paras})}
 function calcMax(m){const c=m.stats.con;return m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)}
 function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)}
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
-function makeMon(t){const hp=roll(...t.hp);return{k:t.k,name:t.name,hp,maxhp:hp,ac:t.ac,hit:t.hit,dmg:t.dmg.slice(),xp:t.xp,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
+function makeMon(t){const tier=G?(G.chapter||0)*8+(G.depth||1):1,hp=Math.round(roll(...t.hp)*(t.boss?1.2:Math.min(1.3,1.04+.035*tier)));return{k:t.k,name:t.name,hp,maxhp:hp,ac:t.ac+(t.boss?1:0),hit:t.hit+(t.boss||tier>=3?1:0),dmg:[t.dmg[0],t.dmg[1],t.dmg[2]+(t.boss||tier>=2?1:0)],xp:t.xp,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
 const monTable=()=>chap().mons.filter(m=>G.depth>=m.min&&G.depth<=m.max);
 function pickItemKey(){const pool=Object.entries(ITEMS).filter(([k,v])=>v.w>0&&(k!=='weapon'||G.depth>=2));let r=rnd(pool.reduce((s,[,v])=>s+v.w,0));for(const [k,v] of pool){if((r-=v.w)<0)return k}return 'potion'}
 function newItem(k){
@@ -605,7 +633,7 @@ function makeHero(cls,name){
 function makeComp(id){
   const t=COMPS[id],ck=compClass(id),C=CLASSES[ck],B=COMP_BUILDS[id],st={...C.stats};
   for(const [k,v] of Object.entries(B.mods||{}))st[k]=(st[k]||0)+v;
-  const m={id,hero:false,ck,name:t.name,title:t.title,cls:C.name,role:CLASS_ROLE[ck],hd:C.hd,acBase:C.ac+(B.ac||0),stats:st,weapon:{id:C.weapon,plus:0},hp:0,maxhp:0,charges:C.abil.charges,down:false,sneakUsed:false,bonusHP:0,loyalty:6,rage:0,temp:0};
+  const m={id,hero:false,ck,name:t.name,title:compTitle(id),cls:C.name,role:CLASS_ROLE[ck],hd:C.hd,acBase:C.ac+(B.ac||0),stats:st,weapon:{id:C.weapon,plus:0},hp:0,maxhp:0,charges:C.abil.charges,down:false,sneakUsed:false,bonusHP:0,loyalty:6,rage:0,temp:0};
   m.maxhp=calcMax(m);m.hp=m.maxhp;return m;
 }
 function recruit(id,loyalty=6){
@@ -613,7 +641,7 @@ function recruit(id,loyalty=6){
   if(G.party.some(m=>m.id===id))return;
   if(comps().length>=MAX_COMPANIONS){G.evQueue=G.evQueue||[];G.evQueue.push({id:'swap',newId:id,loyalty});log(`${t.name} wants to join you, but your party is full.`,'sys');return}
   const nc=makeComp(id);nc.loyalty=loyalty;G.party.push(nc);G.flags['met_'+id]=true;
-  log(`${t.name} the ${t.title} joins your party as a ${nc.cls.toLowerCase()}.`,'big');
+  log(`${t.name} the ${nc.title} joins your party as a ${nc.cls.toLowerCase()}.`,'big');
   log(`${CLASSES[nc.ck].role} ${t.name} fights with ${CLASSES[nc.ck].abil.name}. ${t.name} values ${VALUES[id]}: ${VALUE_HINT[VALUES[id]]}`,'sys');
 }
 const LOYAL_WORD=l=>l>=8?'Devoted':l>=6?'Loyal':l>=4?'Steady':l>=2?'Uneasy':l>=1?'Wavering':'Hostile';
@@ -676,14 +704,14 @@ const EVENTS={
     fight:{t:'You charge. The goblins drop their whetstones and grab spears.',fx:()=>E.fight(['goblin',G.depth>1?'goblin':'kobold'],'freed')},
     bluffok:{t:'“Lord’s property,” you snap, “and he’s late.” The goblins look at each other, decide this is above their station, and scurry off into the dark.',next:'freed'},
     bluffno:{t:'The bigger goblin squints. “Lord who?” Then they come at you.',fx:()=>E.fight(['goblin',G.depth>1?'goblin':'kobold'],'freed')},
-    lockok:{t:'The lock opens with a soft click. The dwarf slips his chain, takes up a hammer, and the two of you fall on the goblins before they turn round.',fx:()=>{E.recruit('brannoc',8);E.fight(['goblin',G.depth>1?'goblin':'kobold'],'joined',{surprise:true})}},
+    lockok:{t:()=>`The lock opens with a soft click. The dwarf slips his chain, ${grab('brannoc')}, and the two of you fall on the goblins before they turn round.`,fx:()=>{E.recruit('brannoc',8);E.fight(['goblin',G.depth>1?'goblin':'kobold'],'joined',{surprise:true})}},
     lockno:{t:'Your pick snaps with a loud ping. Both goblins spin round.',fx:()=>E.fight(['goblin',G.depth>1?'goblin':'kobold'],'freed')},
     freed:{t:'The dwarf rubs his raw wrists. “Brannoc Ironhand, smith of Ashmoor. They took me three winters ago. I owe you my life, and I pay my debts.”',o:[
       {l:'Ask him to join you',sub:()=>gainSub('brannoc'),go:'join'},
       {l:'Tell him to get to the surface safely',sub:'He may have something for you',go:'gift'}]},
-    join:{fx:()=>{E.recruit('brannoc',8);E.mood({ysolde:1})},t:'“Then I walk at the front,” he says, hefting a goblin hammer. “I’m harder to kill than I look.”',end:true},
+    join:{fx:()=>{E.recruit('brannoc',8);E.mood({ysolde:1})},t:()=>`“Then I walk with you,” he says, and ${ready('brannoc')}. “${skill('brannoc')}.”`,end:true},
     gift:{t:'He presses a runed whetstone into your hand. “Then take this. Keep your edge, and I’ll keep a seat by the fire for you.”',fx:()=>{E.item('whet');E.flag('brannoc_free')},end:true},
-    joined:{t:'Brannoc wipes his hammer on a goblin’s shirt. “Brannoc Ironhand. I walk with you now, whether you like it or not.”',end:true},
+    joined:{t:()=>`Brannoc ${after('brannoc')}. “Brannoc Ironhand. I walk with you now, whether you like it or not.”`,end:true},
     leave:{t:'You slip past. Behind you, the scrape of the whetstone goes on and on.',fx:()=>{E.flag('left_brannoc');E.mood({ysolde:-1})},end:true}}},
 
   priest:{min:1,max:6,recruit:true,title:'A circle of salt',nodes:{
@@ -697,15 +725,15 @@ const EVENTS={
     scareno:{t:'The ooze lunges at the torch instead of shrinking from it.',fx:()=>E.fight(['ooze'],'thanks')},
     run:{t:'“Now!” you shout. She leaps the ooze and lands beside you, breathless and laughing.',next:'thanks'},
     runno:{t:'She hesitates too long, and the ooze slides between you.',fx:()=>E.fight(['ooze'],'thanks')},
-    thanks:{t:'“Ysolde, of the Lantern,” she says. “I came down to bless the dead and found they would rather eat me. Let me walk with you. I can mend what the dark breaks.”',o:[
+    thanks:{t:()=>`“Ysolde, ${noun('ysolde')} of the Lantern,” she says. “I came down to lay the dead to rest and found they would rather eat me. Let me walk with you. ${skill('ysolde')}.”`,o:[
       {l:'Welcome her to the party',sub:()=>gainSub('ysolde'),go:'join'},
       {l:'Ask for a blessing instead',sub:'A lasting gift',go:'bless'}]},
-    join:{fx:()=>E.recruit('ysolde',7),t:'She tucks her prayer beads into her sleeve and lifts her mace. “Lead on.”',end:true},
+    join:{fx:()=>E.recruit('ysolde',7),t:()=>`She ${ready('ysolde')}. “Lead on.”`,end:true},
     bless:{t:'She lays a hand on your brow and murmurs. Warmth floods through you and your wounds close. +4 maximum HP.',fx:()=>{E.maxhp(4);E.healAll();E.flag('blessed_ysolde')},end:true},
     leave:{t:'You back away. Her prayer follows you down the corridor, a little faster now.',fx:()=>{E.flag('left_ysolde');E.mood({brannoc:-1})},end:true}}},
 
   kobold:{min:1,max:6,recruit:true,title:'Pip',nodes:{
-    start:{t:'A kobold steps out from behind a pillar, aiming a crossbow almost as big as he is. “Stop! Pip is done with this. Pip wants to go home, but home is down, and down is dangerous. You look dangerous. Take Pip with you?”',o:[
+    start:{t:()=>`A kobold steps out from behind a pillar, ${threat('pip')}. “Stop! Pip is done with this. Pip wants to go home, but home is down, and down is dangerous. You look dangerous. Take Pip with you?”`,o:[
       {l:'Hear him out',go:'offer'},
       {l:'Intimidate him into guiding you',check:['str',12],ok:'intok',no:'intno'},
       {l:'Attack him',go:'fight'}]},
@@ -716,31 +744,31 @@ const EVENTS={
     paid:{t:'He bites each coin. “Good. Pip is yours. The stairs are that way.” He sketches the floor in the dust, and suddenly you know its layout.',fx:()=>{E.gold(-15);E.recruit('pip',6);E.farSight()},end:true},
     free:{t:'“You are right. You are very right. Pip will stay very close to you.” He sketches the floor in the dust for you.',fx:()=>{E.recruit('pip',5);E.farSight()},end:true},
     robbed:{t:'He nods sadly and melts into the dark.',fx:()=>{const n=Math.min(G.gold,roll(2,6));E.gold(-n);E.flag('pip_thief');return n?`A moment later you notice ${n} of your coins went with him.`:''},end:true},
-    intok:{t:'You loom over him. Pip drops the crossbow. “Pip will guide! Pip will guide!” He sketches the floor in the dust.',fx:()=>{E.recruit('pip',2);E.farSight()},end:true},
-    intno:{t:'He shoots you in the leg and scampers off, cackling.',fx:()=>{E.dmg(1,6,0,'a kobold’s bolt')},end:true},
-    fight:{t:'Pip squeaks and fires.',fx:()=>{E.mood({ysolde:-1});E.fight(['kobold'])}},
+    intok:{t:()=>`You loom over him. Pip ${disarm('pip')}. “Pip will guide! Pip will guide!” He sketches the floor in the dust.`,fx:()=>{E.recruit('pip',2);E.farSight()},end:true},
+    intno:{t:()=>`He ${hitRun('pip')} and scampers off, cackling.`,fx:()=>{E.dmg(1,6,0,'a kobold')},end:true},
+    fight:{t:'Pip squeaks and attacks.',fx:()=>{E.mood({ysolde:-1});E.fight(['kobold'])}},
     away:{t:'“Fine! Pip will find someone nicer!” He stomps off.',end:true}}},
 
   ranger:{min:1,max:7,recruit:true,title:'Snared',nodes:{
-    start:{t:'A woman in a green cloak hangs upside down from a snare, her bow just out of reach below her. A ghoul crouches beneath, patient as a cat, waiting for her to tire.',o:[
+    start:{t:()=>`A woman in a green cloak hangs upside down from a snare, her ${gear('maren')} just out of reach below her. A ghoul crouches beneath, patient as a cat, waiting for her to tire.`,o:[
       {l:'Attack the ghoul',go:'fight'},
       {l:'Throw a blade to cut the rope',check:['dex',14],ok:'cut',no:'cutno'},
       {l:'Taunt the ghoul so she can work free',check:['cha',13],ok:'cut2',no:'cutno'},
       {l:'Leave her',go:'leave'}]},
     fight:{t:'You charge the ghoul. It turns, grinning with too many teeth.',fx:()=>E.fight(['ghoul'],'thanks')},
-    cut:{t:'Your blade parts the rope. She drops, rolls, comes up with her bow drawn, and puts an arrow in the ghoul’s shoulder.',fx:()=>{E.recruit('maren',7);E.fight(['ghoul'],'joined')}},
-    cut2:{t:'You shout and wave your torch. The ghoul turns, and behind it she twists free, drops, and snatches up her bow.',fx:()=>{E.recruit('maren',7);E.fight(['ghoul'],'joined')}},
+    cut:{t:()=>`Your blade parts the rope. She drops, rolls, comes up fighting, and ${firstHit('maren')}.`,fx:()=>{E.recruit('maren',7);E.fight(['ghoul'],'joined')}},
+    cut2:{t:'You shout and wave your torch. The ghoul turns, and behind it she twists free, drops, and comes up ready to fight.',fx:()=>{E.recruit('maren',7);E.fight(['ghoul'],'joined')}},
     cutno:{t:'It doesn’t work. The ghoul turns its milky eyes on you instead.',fx:()=>E.fight(['ghoul'],'thanks')},
-    thanks:{t:'You cut her down. “Maren, of the Thornwood. I tracked that thing down here, and it tracked me back.” She strings her bow. “I hunt better with company.”',o:[
+    thanks:{t:()=>`You cut her down. “Maren, ${noun('maren')} of the Thornwood. I tracked that thing down here, and it tracked me back.” She ${ready('maren')}. “I hunt better with company.”`,o:[
       {l:'Take her with you',sub:()=>gainSub('maren'),go:'join'},
       {l:'Ask what she found down here',sub:'She carries something strange',go:'gift'}]},
-    join:{fx:()=>E.recruit('maren',7),t:'“Good. Keep your torch low, and stay out of my line.”',end:true},
+    join:{fx:()=>E.recruit('maren',7),t:'“Good. Keep your torch low, and stay out of my way.”',end:true},
     gift:{t:'She unwraps a spear bound in green copper wire. “Took it from a storm giant’s grave. It bites. You’ll need it more than me.”',fx:()=>E.give('stormcaller'),end:true},
-    joined:{t:'Maren retrieves her arrows from the ghoul. “Maren, of the Thornwood. I owe you. I’ll be paying it back with these.”',end:true},
+    joined:{t:()=>`Maren ${after('maren')}. “Maren, of the Thornwood. I owe you, and I pay what I owe.”`,end:true},
     leave:{t:'You keep to the shadows and leave her to it.',fx:()=>{E.flag('left_maren');E.mood({brannoc:-1,ysolde:-1})},end:true}}},
 
   witch:{min:1,max:7,recruit:true,title:'Tea for two',nodes:{
-    start:{t:'In the middle of a crypt sits a small table set for two. An old woman is pouring tea into chipped cups. “Sit, sit. I am Tessaly, and I have been bored to death down here, and I do mean that. Answer me a riddle and I’ll come along and set things on fire for you.”',o:[
+    start:{t:()=>`In the middle of a crypt sits a small table set for two. An old woman is pouring tea into chipped cups. “Sit, sit. I am Tessaly, and I have been bored to death down here, and I do mean that. Answer me a riddle and I’ll come along and ${offer('tessaly')}.”`,o:[
       {l:'Sit and hear the riddle',go:'riddle'},{l:'Decline politely',go:'decline'},{l:'Attack her',go:'attack'}]},
     riddle:{t:'“What has roots that nobody sees, is taller than trees; up, up it goes, and yet never grows?”',o:[
       {l:'“A mountain.”',go:'right'},{l:'“A tree.”',go:'wrong'},{l:'“A shadow.”',go:'wrong'},{l:'Think it over carefully',check:['int',13],ok:'think',no:'wrong'}]},
@@ -751,7 +779,7 @@ const EVENTS={
     attack:{t:'Before you can draw, she bursts into a swarm of moths. They bite.',fx:()=>{E.dmg(2,6,0,'a swarm of moths');E.flag('angered_witch');E.mood({ysolde:-1})},end:true}}},
 
   sellsword:{min:1,max:7,recruit:true,title:'Coin for a blade',nodes:{
-    start:{t:'A scarred man in good armor sits on an upturned crate, flipping a coin. A greatsword leans beside him. “Corvin. I fight for coin. Forty gold and I’ll follow you to the bottom. Or we roll dice for it. Beat me and I come free. Lose and I take ten.”',o:[
+    start:{t:()=>`A scarred man in good armor sits on an upturned crate, flipping a coin. ${beside('corvin')} “Corvin. I fight for coin. Forty gold and I’ll follow you to the bottom. Or we roll dice for it. Beat me and I come free. Lose and I take ten.”`,o:[
       {l:'Pay him 40 gold',if:()=>G.gold>=40,go:'paid'},
       {l:'Roll dice against him',sub:'Charisma vs his roll',check:['cha',()=>roll(1,20,3),'Dice against Corvin'],ok:'won',no:'lost'},
       {l:'Walk away',go:'leave'}]},
@@ -859,7 +887,7 @@ const EVENTS={
       {l:'Ask for safe passage and a gift',if:()=>E.has('orc_friend'),go:'passage'},
       {l:'Tell him his brother died well',if:()=>E.has('orc_killed'),check:['cha',15],ok:'calm',no:'fight'},
       {l:'Fight',if:()=>E.has('orc_killed'),go:'fight'}]},
-    gruk:{t:'Gruk shoulders his axe. “A debt is a debt.”',fx:()=>E.recruit('gruk',8),end:true},
+    gruk:{t:()=>`Gruk ${ready('gruk')}. “A debt is a debt.”`,fx:()=>E.recruit('gruk',8),end:true},
     passage:{t:'The chief tosses you a battleaxe. “For fixing my idiot brother.” The warband parts to let you through.',fx:()=>{G.pack.weapons.push({id:'battleaxe',plus:2});log('You gain a +2 battleaxe.','loot')},end:true},
     calm:{t:'The chief is silent a long time. “Then go. Before I change my mind.”',end:true},
     fight:{t:'The warband roars and charges.',fx:()=>E.fight(['orc','orc'].concat(comps().length>=2?['orc']:[]))}}},
@@ -988,14 +1016,14 @@ Object.assign(EVENTS,{
       {l:'Leave him to the wyrm',go:'leave'}]},
     fight:{t:'The cultists break off chanting and draw curved knives.',fx:()=>E.fight(['cultist','cultist'],'thanks')},
     disguise:{t:'Smeared with ash, you walk up, unchain him, and march him away. No one questions it.',next:'thanks'},
-    chains:{t:'The chains fall away. The knight stands, cracks his neck, and takes a cultist\u2019s sword. \u201cMy turn.\u201d',fx:()=>{E.recruit('ilvar',8);E.fight(['cultist','cultist'],'joined',{surprise:true})}},
+    chains:{t:()=>`The chains fall away. The knight stands, rolls his shoulders, and ${grab('ilvar')}. \u201cMy turn.\u201d`,fx:()=>{E.recruit('ilvar',8);E.fight(['cultist','cultist'],'joined',{surprise:true})}},
     caught:{t:'A cultist sees you. Knives come out.',fx:()=>E.fight(['cultist','cultist'],'thanks')},
     thanks:{t:'\u201cIlvar, once of the Order of the Scale. I hunted Vharzhul for twenty years. My order is ash now. I would very much like to finish the job.\u201d',o:[
       {l:'Welcome him',sub:()=>gainSub('ilvar'),go:'join'},
       {l:'Ask what he knows about the wyrm',sub:'He has something for you',go:'gift'}]},
     join:{t:'\u201cThen we go up together.\u201d',fx:()=>E.recruit('ilvar',8),end:true},
     gift:{t:'He unbuckles a long, pale glaive. \u201cCut from a dragon\u2019s tooth. My order made it for this. Use it better than I did.\u201d',fx:()=>E.give('wyrmfang'),end:true},
-    joined:{t:'Ilvar cleans the borrowed sword. \u201cIlvar, of the Order of the Scale. I owe you, and I mean to stay until it\u2019s paid.\u201d',end:true},
+    joined:{t:()=>`Ilvar ${after('ilvar')}. \u201cIlvar, of the Order of the Scale. I owe you, and I mean to stay until it\u2019s paid.\u201d`,end:true},
     leave:{t:'You walk on. Behind you, the chanting gets louder.',fx:()=>E.mood({brannoc:-2,ysolde:-1,nell:-1,zeph:-2}),end:true}}},
   gargoyle:{ch:2,min:1,max:5,recruit:true,title:'The chained gargoyle',nodes:{
     start:{t:'A gargoyle is chained to the wall by iron through its wings. It is half turned to stone, and it watches you with one moving eye. \u201cThe cultists keep me as a doorstop,\u201d it rumbles. \u201cBreak the chains, and I will break things for you.\u201d',o:[
@@ -1074,9 +1102,9 @@ Object.assign(EVENTS,{
     buyf:{fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'market'},
     buym:{fx:()=>{E.gold(-25);G.pack.map++;log('You buy a Scroll of Far Sight.','loot')},next:'market'},
     hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},o:[
-      {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${COMPS[ev.offers[0]].title}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${CLASSES[compClass(ev.offers[0])].name} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
-      {l:ev=>ev.offers&&ev.offers[1]?`Hire ${COMPS[ev.offers[1]].name}, ${COMPS[ev.offers[1]].title}`:'',if:ev=>ev.offers&&ev.offers[1]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[1]?`${CLASSES[compClass(ev.offers[1])].name} · values ${VALUES[ev.offers[1]]} · 25 gold`:'',go:'h1'},
-      {l:ev=>ev.offers&&ev.offers[2]?`Hire ${COMPS[ev.offers[2]].name}, ${COMPS[ev.offers[2]].title}`:'',if:ev=>ev.offers&&ev.offers[2]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[2]?`${CLASSES[compClass(ev.offers[2])].name} · values ${VALUES[ev.offers[2]]} · 25 gold`:'',go:'h2'},
+      {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${compTitle(ev.offers[0])}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${CLASSES[compClass(ev.offers[0])].name} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
+      {l:ev=>ev.offers&&ev.offers[1]?`Hire ${COMPS[ev.offers[1]].name}, ${compTitle(ev.offers[1])}`:'',if:ev=>ev.offers&&ev.offers[1]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[1]?`${CLASSES[compClass(ev.offers[1])].name} · values ${VALUES[ev.offers[1]]} · 25 gold`:'',go:'h1'},
+      {l:ev=>ev.offers&&ev.offers[2]?`Hire ${COMPS[ev.offers[2]].name}, ${compTitle(ev.offers[2])}`:'',if:ev=>ev.offers&&ev.offers[2]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[2]?`${CLASSES[compClass(ev.offers[2])].name} · values ${VALUES[ev.offers[2]]} · 25 gold`:'',go:'h2'},
       {l:'Back to the tavern',go:'start'}]},
     h0:{fx:ev=>hireAt(0,ev),next:'start'},h1:{fx:ev=>hireAt(1,ev),next:'start'},h2:{fx:ev=>hireAt(2,ev),next:'start'},
     part:{t:'Who will you leave behind in Ashmoor?',o:[
