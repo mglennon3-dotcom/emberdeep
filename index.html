@@ -1,0 +1,1796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0c0b">
+<meta name="description" content="A text-based dungeon crawl. Build a party, roll the dice, and take the Ember Crown from the Hollow King.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Emberdeep">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+<title>Emberdeep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500;700&family=Alegreya:ital,wght@0,400;0,500;0,700;1,400&family=Alegreya+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a book-like story column (narrative, choices, command line) beside the party sheet with pack and a text map. Single dark, torchlit world by design. */
+:root{
+  --void:#0b0c0b;
+  --stone:#141715;
+  --stone-2:#1c201d;
+  --line:#2e3530;
+  --parchment:#eadfc6;
+  --ink-soft:#cfc4aa;
+  --muted:#958f7f;
+  --ember:#f0a33a;
+  --ember-dim:#9c6420;
+  --blood:#e0675d;
+  --arcane:#8fb4ea;
+  --moss:#9cc072;
+  --gold:#e8c95a;
+  --mythic:#e2a8ff;
+  --f-display:"Grenze Gotisch","Palatino Linotype",Georgia,serif;
+  --f-story:"Alegreya",Georgia,"Times New Roman",serif;
+  --f-body:"Alegreya Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html,body{background:var(--void);color:var(--parchment)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45}
+.app{max-width:1200px;margin:0 auto;padding-block:14px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:700;font-size:2.4rem;line-height:1;margin:0;color:var(--ember);text-shadow:0 0 18px rgba(240,163,58,.3)}
+.depthline{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.depthline b{color:var(--parchment);font-weight:600}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px;align-items:start}
+@media (max-width:880px){.layout{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+
+.story{height:min(56vh,620px);min-height:300px;overflow-y:auto;background:var(--stone);border:1px solid var(--line);border-radius:4px;padding:18px clamp(14px,3vw,30px);font-family:var(--f-story);font-size:1.08rem;line-height:1.6;display:flex;flex-direction:column;gap:9px}
+.story.intro{height:auto;min-height:0}
+.story p{margin:0;max-width:66ch}
+.story .scene{margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.story .scene:first-child{margin-top:0;border-top:0;padding-top:0}
+.story .scene h2{font-family:var(--f-display);font-weight:500;font-size:1.65rem;line-height:1.05;margin:0 0 4px;text-wrap:balance}
+.story .scene h2 small{display:block;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ember);margin-bottom:4px}
+.story .scene p+p{margin-top:6px}
+.story .cmd{font-family:var(--f-mono);font-size:.82rem;color:var(--ember);margin-top:4px}
+.story .d{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);margin-left:8px;white-space:nowrap}
+.story .hit{color:var(--parchment)} .story .crit{color:var(--ember);font-weight:700}
+.story .miss{color:var(--muted)} .story .hurt{color:var(--blood)} .story .heal{color:var(--moss)}
+.story .loot{color:var(--gold)} .story .magic{color:var(--arcane)} .story .sys{font-family:var(--f-body);font-size:.92rem;color:var(--muted)}
+.story .ally{color:#d9cfb6}
+.story .big{font-family:var(--f-display);font-size:1.4rem;line-height:1.2;color:var(--ember)}
+.story .threat{color:#f0c39a}
+.story .event{color:var(--parchment);border-left:2px solid var(--ember-dim);padding-left:12px}
+.story .roll{font-family:var(--f-mono);font-size:.8rem;color:var(--ink-soft);background:var(--void);border:1px solid var(--line);border-radius:3px;padding:3px 8px;align-self:flex-start;max-width:100%}
+.story .roll.ok{border-color:#3f5a2e;color:var(--moss)} .story .roll.no{border-color:#5a2a25;color:var(--blood)}
+.story .mythic{color:var(--mythic)}
+.story pre{margin:0;font-family:var(--f-mono);font-size:.85rem;line-height:1.25;color:var(--ink-soft)}
+
+.choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px}
+.choice{display:grid;grid-template-columns:22px 1fr;gap:2px 8px;align-items:baseline;text-align:left;background:var(--stone-2);border:1px solid var(--line);border-radius:4px;padding:9px 12px;font:inherit;color:var(--parchment);cursor:pointer;min-width:0}
+.choice:hover{border-color:var(--ember-dim);background:#231f19}
+.choice:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+.choice .n{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);grid-row:span 2}
+.choice .l{font-weight:500;font-size:1rem}
+.choice .s{grid-column:2;font-size:.82rem;color:var(--muted)}
+.choice .s b{font-family:var(--f-mono);font-weight:600;font-size:.76rem;color:var(--ember)}
+.choice.fight{border-color:#5a2a25;background:#221614}
+.choice.fight:hover{border-color:var(--blood)}
+.choice.go .l::before{content:"→ ";color:var(--muted)}
+.choice.prime{border-color:var(--ember-dim)} .choice.prime .l{color:var(--ember)}
+.choice.hero .l{font-family:var(--f-display);font-size:1.4rem;line-height:1.05}
+.choice.myth .l{color:var(--mythic)}
+.choice.ev{border-color:#3d3526;background:#1f1b15}
+
+form.cmdline{display:flex;gap:8px}
+form.cmdline label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+form.cmdline input{flex:1;min-width:0;background:var(--void);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--parchment);font-family:var(--f-mono);font-size:.9rem}
+form.cmdline input::placeholder{color:#6d685c}
+form.cmdline input:focus{outline:none;border-color:var(--ember-dim)}
+form.cmdline button{background:var(--stone-2);border:1px solid var(--line);border-radius:4px;color:var(--parchment);padding:0 16px;font:inherit;cursor:pointer}
+
+.sheet{background:var(--stone);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:14px}
+.who{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.who .cn{font-family:var(--f-display);font-size:1.6rem;line-height:1}
+.who .lv{font-family:var(--f-mono);font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.bars{display:flex;flex-direction:column;gap:5px}
+.bar{position:relative;height:22px;background:#0c0e0d;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.bar>i{position:absolute;inset:0 auto 0 0;background:linear-gradient(180deg,#d9564c,#8f2822)}
+.bar.xp{height:10px}.bar.xp>i{background:linear-gradient(180deg,#9fc1ee,#4f75ab)}
+.bar.sm{height:8px;margin-top:3px}
+.bar>span{position:relative;display:block;text-align:center;font-family:var(--f-mono);font-size:.76rem;line-height:20px;color:#fff;text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}
+.scores{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.score{border:1px solid var(--line);border-radius:3px;text-align:center;padding:3px 0 4px;background:var(--stone-2)}
+.score small{display:block;font-family:var(--f-mono);font-size:.6rem;letter-spacing:.1em;color:var(--muted)}
+.score b{display:block;font-size:1rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.score em{font-style:normal;font-family:var(--f-mono);font-size:.68rem;color:var(--ember)}
+dl.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0}
+dl.stats div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px dotted var(--line);padding-bottom:2px;min-width:0}
+dl.stats dt{color:var(--muted);font-size:.85rem}
+dl.stats dd{margin:0;font-family:var(--f-mono);font-size:.82rem;font-variant-numeric:tabular-nums;text-align:right}
+.wpn{font-size:.88rem;color:var(--ink-soft)} .wpn b{font-weight:500}
+.wpn .m{color:var(--mythic)}
+.sheet h3{margin:0 0 6px;font-family:var(--f-mono);font-size:.68rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.abil b{color:var(--ember)} .abil .pips{font-family:var(--f-mono);color:var(--ember);letter-spacing:2px;float:right}
+.abil p{margin:2px 0 0;font-size:.85rem;color:var(--ink-soft)}
+.party{display:flex;flex-direction:column;gap:8px}
+.mate{background:var(--stone-2);border:1px solid var(--line);border-radius:3px;padding:7px 9px}
+.mate .top{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.mate .nm{font-family:var(--f-display);font-size:1.15rem;line-height:1}
+.mate .rl{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);white-space:nowrap}
+.mate .ln{font-size:.8rem;color:var(--muted);margin-top:2px}
+.mate.down{border-color:#5a2a25}.mate.down .nm::after{content:" · fallen";font-family:var(--f-mono);font-size:.68rem;color:var(--blood)}
+.empty{font-size:.85rem;color:var(--muted);margin:0}
+.loy{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase}.loy.lhi{color:var(--moss)}.loy.lmid{color:var(--gold)}.loy.llo{color:var(--blood)}
+.pack{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;font-size:.88rem}
+.pack li{display:flex;justify-content:space-between;gap:8px}
+.pack li span:last-child{font-family:var(--f-mono);color:var(--muted);white-space:nowrap}
+.pack li.zero{opacity:.45}
+.pack li.m span:first-child{color:var(--mythic)}
+pre.map{margin:0;font-family:var(--f-mono);font-size:.95rem;line-height:1.15;color:var(--ink-soft);background:var(--void);border:1px solid var(--line);border-radius:3px;padding:10px;overflow-x:auto}
+pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)} pre.map .dim{color:#5c584e} pre.map .ev{color:var(--gold)}
+.legend{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);margin-top:5px}
+.intro-sheet{font-size:.92rem;color:var(--ink-soft);margin:0}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Emberdeep</h1>
+    <div class="depthline" id="depthline">Eight floors down</div>
+  </header>
+  <div class="layout">
+    <div class="col">
+      <div class="story" id="story" aria-live="polite"></div>
+      <div class="choices" id="choices"></div>
+      <form class="cmdline" id="cmdform" autocomplete="off">
+        <label for="cmd">Type a command</label>
+        <input id="cmd" type="text" placeholder="Or type a command: go north, attack, search, help" autocapitalize="off" spellcheck="false">
+        <button type="submit">Enter</button>
+      </form>
+    </div>
+    <aside class="sheet" id="sheet"></aside>
+  </div>
+</div>
+
+<script>
+(()=>{
+const GRID=5,MAX_COMPANIONS=3,SAVE_KEY='emberdeep-party-save-v1';
+const $=s=>document.querySelector(s);
+const rnd=n=>Math.floor(Math.random()*n);
+const pick=a=>a[rnd(a.length)];
+const roll=(n,d,b=0)=>{let t=b;for(let i=0;i<n;i++)t+=1+rnd(d);return t};
+const dstr=(n,d,b=0)=>`${n}d${d}${b>0?'+'+b:b<0?b:''}`;
+const sgn=v=>(v>=0?'+':'')+v;
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const key=(x,y)=>x+','+y;
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+const listJoin=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+const DIRV={n:[0,-1,'north'],e:[1,0,'east'],s:[0,1,'south'],w:[-1,0,'west']};
+const OPP={n:'s',s:'n',e:'w',w:'e'};
+const STATS=['str','dex','con','int','wis','cha'];
+const STATNAME={str:'Strength',dex:'Dexterity',con:'Constitution',int:'Intelligence',wis:'Wisdom',cha:'Charisma'};
+const UNDEAD=new Set(['skeleton','ghoul','wraith','king','thrall','abbess','ashwight']);
+const DRAGONKIN=new Set(['wyvern','wyrm','salamander']);
+
+/* ---------- weapons ---------- */
+const WEAPONS={
+  dagger:{name:'dagger',n:1,d:4,stat:'finesse'},
+  shortsword:{name:'shortsword',n:1,d:6,stat:'finesse'},
+  longsword:{name:'longsword',n:1,d:8,stat:'str'},
+  mace:{name:'mace',n:1,d:6,stat:'str'},
+  warhammer:{name:'warhammer',n:1,d:8,stat:'str'},
+  battleaxe:{name:'battleaxe',n:1,d:10,stat:'str'},
+  greatsword:{name:'greatsword',n:2,d:6,stat:'str'},
+  spear:{name:'spear',n:1,d:8,stat:'str'},
+  staff:{name:'quarterstaff',n:1,d:6,stat:'int'},
+  longbow:{name:'longbow',n:1,d:8,stat:'dex'},
+  crossbow:{name:'hand crossbow',n:1,d:6,stat:'dex'},
+  greataxe:{name:'greataxe',n:1,d:12,stat:'str'},
+  rapier:{name:'rapier',n:1,d:8,stat:'finesse'},
+  shillelagh:{name:'shillelagh',n:1,d:8,stat:'wis'},
+  fists:{name:'fists',n:1,d:6,stat:'finesse'},
+  cinderfang:{name:'Cinderfang',n:1,d:8,stat:'str',bonus:1,extra:[1,6,'fire'],mythic:true,lore:'+1 longsword wreathed in flame. Every hit adds 1d6 fire.'},
+  hush:{name:'Hush',n:1,d:4,stat:'finesse',bonus:2,crit:18,mythic:true,lore:'+2 dagger that whispers. Crits on 18 to 20.'},
+  gravewarden:{name:'Gravewarden',n:1,d:8,stat:'str',bonus:1,undead:[2,6],mythic:true,lore:'+1 warhammer of a buried order. +2d6 against the undead.'},
+  stormcaller:{name:'Stormcaller',n:1,d:8,stat:'str',bonus:1,storm:true,mythic:true,lore:'+1 copper-bound spear. One hit in three calls lightning for +2d8.'},
+  thirst:{name:'the Thirsting Blade',n:2,d:6,stat:'str',bonus:2,leech:true,mythic:true,lore:'+2 greatsword. Heals its wielder for a third of the damage it deals.'},
+  moonglass:{name:'Moonglass Staff',n:1,d:6,stat:'int',bonus:1,spell:true,mythic:true,lore:'+1 staff. One more Magic Missile dart, and +1d6 on Fire Bolts.'},
+  tidebreaker:{name:'Tidebreaker',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'cold'],mythic:true,lore:'+2 trident of the drowned abbey. +1d8 cold on every hit.'},
+  wyrmfang:{name:'Wyrmfang',n:1,d:10,stat:'str',bonus:2,slayer:[3,8],mythic:true,lore:'+2 glaive cut from a dragon\u2019s tooth. +3d8 against dragons and their kin.'},
+  dawnlance:{name:'Dawnlance',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'radiant'],undead:[1,8],mythic:true,lore:'+2 lance of morning light. +1d8 radiant, and another 1d8 against the undead.'},
+  kingsbane:{name:'Kingsbane',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'radiant'],king:true,mythic:true,lore:'+2 sword reforged in the Ember Forge. +1d8 radiant, and its wounds stop the Hollow King from mending.'},
+};
+const wdef=w=>{const b=WEAPONS[w.id];return{...b,bonus:(b.bonus||0)+(w.plus||0)}};
+const wname=w=>{const b=WEAPONS[w.id];return b.mythic?b.name:(w.plus?`+${w.plus} ${b.name}`:b.name)};
+const wdice=(m,w)=>{const d=wdef(w);return dstr(d.n,d.d,statMod(m,w)+d.bonus)+(d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:'')};
+function statMod(m,w){const d=WEAPONS[w.id];if(d.stat==='finesse')return Math.max(m.stats.str,m.stats.dex);return m.stats[d.stat]}
+
+/* ---------- heroes & companions ---------- */
+const CLASSES={
+  barbarian:{name:'Barbarian',role:'A storm of muscle and fury. Shrugs off blows that would fell anyone else.',hd:12,ac:14,stats:{str:3,dex:1,con:3,int:-1,wis:0,cha:0},weapon:'greataxe',col:'#e0704f',
+    abil:{name:'Rage',charges:2,desc:'For 3 rounds: +2 damage and you take half damage.'},passive:'Primal toughness: the biggest hit die of any class.',names:['Brakka','Ulfa','Torvald'],main:'str'},
+  bard:{name:'Bard',role:'A silver tongue and a song that steadies the whole party.',hd:8,ac:13,stats:{str:0,dex:2,con:1,int:1,wis:0,cha:3},weapon:'rapier',col:'#e8a0c8',
+    abil:{name:'Song of Courage',charges:2,desc:'Every ally heals 1d6 + CHA and gains +1 to hit for the floor.'},passive:'Expertise: +3 on Charisma checks. Talk your way past almost anything.',names:['Lysander','Marisol','Fennick'],main:'cha'},
+  cleric:{name:'Cleric',role:'Armored faith. Keeps the whole party standing.',hd:8,ac:16,stats:{str:2,dex:0,con:1,int:0,wis:3,cha:1},weapon:'mace',col:'#f2e6a0',
+    abil:{name:'Healing Word',charges:3,desc:'Heal any ally 1d8 + WIS, even one who has fallen.'},passive:'Fallen allies always pull through after a fight.',names:['Agathe','Cade','Seren'],main:'wis'},
+  druid:{name:'Druid',role:'Keeper of the old ways. Can wear the shape of a beast.',hd:8,ac:13,stats:{str:0,dex:1,con:2,int:1,wis:3,cha:0},weapon:'shillelagh',col:'#8fcf8a',
+    abil:{name:'Wild Shape',charges:2,desc:'Become a cave bear: gain 10 + 2 × level temporary HP.'},passive:'Shillelagh: your club strikes with Wisdom.',names:['Briar','Oswin','Talwyn'],main:'wis'},
+  fighter:{name:'Fighter',role:'Heavy armor and a long blade. Hard to kill.',hd:10,ac:16,stats:{str:3,dex:1,con:2,int:0,wis:0,cha:1},weapon:'longsword',col:'#f0a33a',
+    abil:{name:'Second Wind',charges:2,desc:'Recover 1d10 + level HP.'},passive:'Veteran: a short rest restores the whole party to full health.',names:['Aldric','Hesper','Tamsin'],main:'str'},
+  monk:{name:'Monk',role:'Bare hands, fast feet and perfect focus.',hd:8,ac:15,stats:{str:0,dex:3,con:1,int:0,wis:2,cha:0},weapon:'fists',col:'#f0d080',
+    abil:{name:'Flurry of Blows',charges:3,desc:'Strike the same foe three times in a blur.'},passive:'Patient Defense: monsters take −2 to hit you.',names:['Shen','Ama','Kestrel'],main:'dex'},
+  paladin:{name:'Paladin',role:'A holy oath and a heavy sword. Protects everyone near.',hd:10,ac:17,stats:{str:3,dex:0,con:2,int:0,wis:0,cha:2},weapon:'longsword',col:'#ffe08a',
+    abil:{name:'Divine Smite',charges:3,desc:'An attack that adds 2d8 radiant on a hit, +1d8 against undead. Holy light stops the Hollow King mending.'},passive:'Aura of Protection: every member of the party gets +1 AC.',names:['Isolde','Gareth','Anselm'],main:'str'},
+  ranger:{name:'Ranger',role:'Hunter and tracker. Never misses the trail.',hd:10,ac:14,stats:{str:1,dex:3,con:1,int:0,wis:2,cha:0},weapon:'longbow',col:'#9cc072',
+    abil:{name:'Volley',charges:3,desc:'Loose an arrow at every foe in the room.'},passive:'Expertise: +3 on Wisdom checks. Your party never makes noise when sneaking.',names:['Rowan','Ashe','Tamsk'],main:'dex'},
+  rogue:{name:'Rogue',role:'Quiet, quick, and deadly against the unwary.',hd:8,ac:14,stats:{str:0,dex:3,con:1,int:1,wis:0,cha:2},weapon:'shortsword',col:'#c9e08a',
+    abil:{name:'Cunning Strike',charges:3,desc:'Attack with advantage and add Sneak Attack dice.'},passive:'Sneak Attack on surprised foes. Expertise: +3 on Dexterity checks. Crits on 19 and 20.',names:['Wren','Corran','Nim'],main:'dex'},
+  sorcerer:{name:'Sorcerer',role:'Magic in the blood. Raw, hot and hard to control.',hd:6,ac:12,stats:{str:-1,dex:2,con:2,int:0,wis:0,cha:3},weapon:'dagger',col:'#ff9f5a',
+    abil:{name:'Fireball',charges:2,desc:'3d6 + level fire to every foe. Fire stops the Hollow King mending.'},passive:'Font of Magic: a short rest gives back one Fireball.',names:['Vex','Seraphine','Calder'],main:'cha'},
+  warlock:{name:'Warlock',role:'Bound to something old and patient. It pays in power.',hd:8,ac:13,stats:{str:0,dex:2,con:1,int:0,wis:0,cha:3},weapon:'dagger',col:'#b48cff',
+    abil:{name:'Hex',charges:3,desc:'Curse a foe: every hit the party lands on it adds 1d6.'},passive:'Eldritch Blast: a beam of force (1d10 + CHA) you can cast every turn, two beams from level 5.',names:['Morrow','Ilsabet','Quill'],main:'cha'},
+  wizard:{name:'Wizard',role:'Fragile, but carries a spellbook of force.',hd:6,ac:12,stats:{str:-1,dex:2,con:1,int:3,wis:1,cha:0},weapon:'staff',col:'#9cc0f2',
+    abil:{name:'Magic Missile',charges:3,desc:'Darts of force, 1d4+1 each, that never miss.'},passive:'Arcane Ward: the first blow against you on each floor is absorbed.',names:['Orsolya','Benedek','Ilse'],main:'int'},
+};
+const EXPERTISE={rogue:'dex',bard:'cha',ranger:'wis'};
+const COMPS={
+  brannoc:{name:'Brannoc',title:'dwarf smith',cls:'Fighter',role:'tank',hd:10,ac:17,stats:{str:3,dex:0,con:3,int:0,wis:1,cha:0},weapon:'warhammer',col:'#e0a060',blurb:'Stands in front. Monsters go for him first.'},
+  ysolde:{name:'Ysolde',title:'priest of the Lantern',cls:'Cleric',role:'healer',hd:8,ac:15,stats:{str:1,dex:0,con:1,int:1,wis:3,cha:2},weapon:'mace',col:'#f2e6a0',blurb:'Heals whoever is worst hurt. Fallen allies always pull through.'},
+  pip:{name:'Pip',title:'kobold turncoat',cls:'Rogue',role:'skirmisher',hd:6,ac:14,stats:{str:-1,dex:3,con:0,int:1,wis:1,cha:0},weapon:'crossbow',col:'#d0875a',blurb:'First shot in each fight is a sneak attack. Knows every tunnel.'},
+  maren:{name:'Maren',title:'ranger of the Thornwood',cls:'Ranger',role:'archer',hd:8,ac:14,stats:{str:1,dex:3,con:1,int:0,wis:2,cha:0},weapon:'longbow',col:'#9cc072',blurb:'Marks her quarry: +1d6 on every hit. Moves silently.'},
+  tessaly:{name:'Tessaly',title:'hedge-witch',cls:'Wizard',role:'caster',hd:6,ac:12,stats:{str:-1,dex:1,con:0,int:3,wis:2,cha:1},weapon:'staff',col:'#c39ce8',blurb:'Hurls Fire Bolts. Fire stops the Hollow King from mending.'},
+  corvin:{name:'Corvin',title:'sellsword',cls:'Fighter',role:'tank',hd:10,ac:16,stats:{str:3,dex:1,con:2,int:0,wis:0,cha:1},weapon:'greatsword',col:'#b8c4cc',blurb:'Hits hard and draws attacks.'},
+  nell:{name:'Nell',title:'novice of the drowned abbey',cls:'Cleric',role:'healer',hd:8,ac:15,stats:{str:0,dex:1,con:2,int:1,wis:3,cha:2},weapon:'mace',col:'#bfe3f0',blurb:'Heals whoever is worst hurt. Fallen allies always pull through.'},
+  oskar:{name:'Oskar',title:'salvage diver',cls:'Rogue',role:'skirmisher',hd:8,ac:15,stats:{str:1,dex:3,con:2,int:2,wis:0,cha:0},weapon:'shortsword',col:'#d8b070',blurb:'First strike in each fight is a sneak attack. Knows how to find things.'},
+  ilvar:{name:'Ilvar',title:'exiled dragon-knight',cls:'Paladin',role:'tank',hd:10,ac:18,stats:{str:4,dex:0,con:3,int:0,wis:1,cha:2},weapon:'longsword',col:'#ffd9a0',blurb:'Heavy armor and an old grudge. Monsters go for him first.'},
+  zeph:{name:'Zeph',title:'gargoyle',cls:'Gargoyle',role:'tank',hd:12,ac:17,stats:{str:4,dex:1,con:4,int:0,wis:1,cha:-1},weapon:'warhammer',col:'#a8b0b8',blurb:'Skin of stone. Monsters break their claws on him.'},
+  gruk:{name:'Gruk',title:'orc deserter',cls:'Barbarian',role:'tank',hd:12,ac:14,stats:{str:4,dex:1,con:3,int:-1,wis:0,cha:-1},weapon:'battleaxe',col:'#a8b066',blurb:'Repaying a debt. Hits like a falling wall.'},
+};
+
+const VALUES={nell:'faith',oskar:'gold',ilvar:'honour',zeph:'freedom',brannoc:'honour',ysolde:'mercy',pip:'gold',maren:'nerve',tessaly:'cleverness',corvin:'pay',gruk:'strength'};
+const VALUE_HINT={faith:'likes prayer and kindness, and hates cruelty.',freedom:'hates cages, chains and cruelty to captives.',honour:'hates abandoning the helpless and stealing.',mercy:'hates cruelty and theft, and likes prayer and kindness.',gold:'likes gold and gifts, and hates going without.',nerve:'hates running from a fight.',cleverness:'likes clever solutions.',pay:'expects wages every floor.',strength:'despises cowardice.'};
+const BETRAY={
+  brannoc:'Brannoc stops walking and turns to face you. “I swore a debt to someone better than you. I’ve watched what you do down here, and I’m done paying it.” His hammer is already in his hand.',
+  ysolde:'Ysolde will not meet your eyes. “The Lantern does not light the way for people like you. I’m leaving, and I’m taking what the dead are owed.” Her mace is raised.',
+  maren:'Maren has an arrow on the string, pointed at the floor between you. “You run when it gets hard, and one day you’ll run and leave me to die. Hand over half the gold and I go my own way.”',
+  tessaly:'Tessaly laughs, and her shadow does not. “I’m bored again, dearie. You were fun for a while.” The air around her fingers begins to smoke.',
+  corvin:'Corvin plants his greatsword point-down on the stones. “Contract’s over. You’ve stiffed me once too often. Pay me everything you’ve got, or I take it.”',
+  gruk:'Gruk spits on the floor. “My debt is paid. I follow the strong, and you run like a goblin. Fight me, or get out of my way.”',
+  pip:'',
+  nell:'Nell is crying, but her mace is steady. \u201cI prayed for someone to save me, and the Lady sent you. I think she made a mistake.\u201d',
+  oskar:'Oskar pulls on his brass helmet and steps between you and the door. \u201cBusiness is business. Everything in your pack, and we part friends.\u201d',
+  ilvar:'Ilvar draws his sword and salutes you with it, which is somehow worse. \u201cI have served cowards before. I will not do it twice.\u201d',
+  zeph:'Zeph spreads his stone wings and blocks the way. \u201cYou are no better than the ones who chained me. I will be free of you too.\u201d',
+};
+
+/* ---------- monsters ---------- */
+const MONS=[
+  {k:'rat',name:'giant rat',hp:[2,6,0],ac:12,hit:4,dmg:[1,4,1],xp:3,min:1,max:3,intro:'A giant rat the size of a dog gnaws at something in the corner.'},
+  {k:'kobold',name:'kobold',hp:[2,6,0],ac:12,hit:4,dmg:[1,4,1],xp:4,min:1,max:4,intro:'A kobold rummages through a torn sack, yapping to itself.'},
+  {k:'goblin',name:'goblin',hp:[2,6,0],ac:14,hit:4,dmg:[1,6,1],xp:7,min:1,max:5,intro:'A goblin squats by a small fire, turning a skewer of something you would rather not identify.'},
+  {k:'skeleton',name:'skeleton',hp:[2,8,4],ac:13,hit:4,dmg:[1,6,2],xp:12,min:2,max:7,intro:'A skeleton stands perfectly still in the middle of the room, an old sword in its hand.'},
+  {k:'ooze',name:'grey ooze',hp:[3,8,6],ac:8,hit:4,dmg:[1,8,2],xp:12,min:2,max:6,slow:true,intro:'A grey ooze slides across the floor, dissolving the dust in its path.'},
+  {k:'orc',name:'orc',hp:[2,8,6],ac:13,hit:5,dmg:[1,12,3],xp:18,min:3,max:8,intro:'An orc leans on a notched greataxe, picking its teeth with a bone.'},
+  {k:'ghoul',name:'ghoul',hp:[5,8,0],ac:12,hit:5,dmg:[2,6,2],xp:25,min:4,max:8,intro:'A ghoul crouches over a body, chewing slowly.'},
+  {k:'ogre',name:'ogre',hp:[5,10,8],ac:11,hit:6,dmg:[2,8,4],xp:45,min:5,max:8,slow:true,intro:'An ogre sits slumped against the wall, snoring like a rockslide.'},
+  {k:'wraith',name:'wraith',hp:[6,8,6],ac:13,hit:6,dmg:[3,6,0],xp:55,min:6,max:8,intro:'A wraith drifts above the floor. Your torch gutters in its cold.'},
+];
+const MONS2=[
+  {k:'thrall',name:'drowned thrall',hp:[4,8,6],ac:11,hit:5,dmg:[1,8,3],xp:20,min:1,max:4,intro:'A drowned thrall stands waist-deep in the water, swaying, its eyes milky and wide.'},
+  {k:'eels',name:'eel swarm',hp:[5,8,0],ac:13,hit:6,dmg:[2,6,1],xp:25,min:1,max:4,intro:'The water churns with an eel swarm, a hundred grey bodies knotting and unknotting.'},
+  {k:'coral',name:'coral knight',hp:[6,8,12],ac:17,hit:6,dmg:[1,10,4],xp:45,min:2,max:6,intro:'A coral knight stands guard, its armor grown over with pink and white reef.'},
+  {k:'siren',name:'siren',hp:[5,8,4],ac:12,hit:6,dmg:[2,6,2],xp:40,min:3,max:6,intro:'A siren perches on a broken font, humming a song you almost remember.'},
+  {k:'troll',name:'lake troll',hp:[8,10,16],ac:14,hit:7,dmg:[2,8,5],xp:70,min:4,max:6,intro:'A lake troll crouches in the shallows, weed hanging from its tusks.'},
+  {k:'deeppriest',name:'deep priest',hp:[7,8,7],ac:13,hit:7,dmg:[3,6,2],xp:65,min:4,max:6,intro:'A deep priest in a waterlogged cassock chants to something beneath the floor.'},
+];
+const MONS3=[
+  {k:'cultist',name:'ash cultist',hp:[6,8,6],ac:13,hit:7,dmg:[2,6,3],xp:40,min:1,max:4,intro:'An ash cultist kneels before a brazier, rubbing cinders into their face.'},
+  {k:'gargoyle',name:'gargoyle',hp:[7,8,14],ac:16,hit:7,dmg:[2,6,4],xp:60,min:1,max:5,intro:'A gargoyle crouches on a ledge, so still it might be carved.'},
+  {k:'harpy',name:'harpy',hp:[6,8,6],ac:13,hit:7,dmg:[2,6,3],xp:50,min:2,max:6,intro:'A harpy preens on a rafter, picking at something red.'},
+  {k:'salamander',name:'salamander',hp:[8,10,8],ac:15,hit:8,dmg:[2,8,4],xp:80,min:3,max:6,intro:'A salamander coils around a pillar, its scales glowing like coals.'},
+  {k:'ashwight',name:'ash wight',hp:[8,8,16],ac:15,hit:8,dmg:[2,8,4],xp:90,min:4,max:6,intro:'An ash wight stands among the cinders, a burned soldier who never stopped marching.'},
+  {k:'wyvern',name:'wyvern',hp:[10,10,20],ac:14,hit:8,dmg:[2,10,5],xp:110,min:4,max:6,intro:'A wyvern hunches in the dark, its stinger tail flicking back and forth.'},
+];
+const BOSS2={k:'abbess',name:'Drowned Abbess',hp:[14,10,30],ac:16,hit:9,dmg:[2,10,5],xp:0,boss:true};
+const BOSS3={k:'wyrm',name:'Vharzhul the Ash Wyrm',hp:[18,12,60],ac:18,hit:11,dmg:[2,10,7],xp:0,boss:true};
+const MONK=Object.fromEntries([...MONS,...MONS2,...MONS3].map(m=>[m.k,m]));
+const BOSS={k:'king',name:'Hollow King',hp:[9,10,18],ac:16,hit:8,dmg:[2,8,4],xp:0,boss:true};
+
+/* ---------- items ---------- */
+const ITEMS={
+  potion:{name:'Healing Draught',a:'a',w:34},
+  gold:{name:'gold',w:26},
+  fire:{name:'Scroll of Cinders',a:'a',w:10},
+  map:{name:'Scroll of Far Sight',a:'a',w:8},
+  whet:{name:'Runed Whetstone',a:'a',w:6},
+  ward:{name:'Ironbark Charm',a:'an',w:6},
+  vigor:{name:'Elixir of Vigor',a:'an',w:4},
+  weapon:{name:'weapon',w:6},
+  crown:{name:'Ember Crown',a:'the',w:0},
+  tidecrown:{name:'Tide Crown',a:'the',w:0},
+  skycrown:{name:'Sky Crown',a:'the',w:0},
+};
+const itemName=it=>it.k==='gold'?`${it.amt} gold coins`:it.k==='weapon'?`a ${wname(it.w)}`:`${ITEMS[it.k].a} ${ITEMS[it.k].name}`;
+const itemShort=it=>it.k==='gold'?`${it.amt} gold`:it.k==='weapon'?`the ${wname(it.w)}`:`the ${ITEMS[it.k].name}`;
+
+const THEMES=[
+  {upTo:2,name:'The Upper Cellars',
+   rooms:['wine cellar','storeroom','collapsed pantry','root cellar','cistern','guard post','servants’ passage','cold larder','barrel vault','old kitchen','brewing room','coal store','laundry','scullery','salt cellar','cooper’s workshop'],
+   bits:[
+    'Rotten barrels line the walls, their iron hoops rusted through.',
+    'A single broken lantern hangs from a hook, its glass long gone.',
+    'The air smells of vinegar and mould.',
+    'Someone scratched tally marks into the wall here. Hundreds of them.',
+    'Old straw and rat droppings crunch underfoot.',
+    'A rack of empty bottles clinks faintly as you pass.',
+    'Sacks of grain have burst and sprouted pale, blind shoots in the dark.',
+    'A cold draught pushes at your torch flame from somewhere you can’t see.',
+    'Hams still hang from the rafters, black and hard as wood.',
+    'A cracked millstone leans against the wall like a fallen shield.',
+    'The ceiling is low enough that you have to stoop.',
+    'A chalk map on the wall shows corridors that don’t match the ones you walked.',
+    'Mice have nested in a mouldering pile of linen. They watch you without fear.',
+    'Iron hooks line one wall, the kind butchers use. They are empty.',
+    'A cauldron the size of a bathtub sits cold on a bed of old ash.',
+    'Spilled wine has stained the flagstones the colour of an old bruise.',
+    'Somewhere behind the wall, water runs fast and loud.',
+    'A child’s wooden horse lies on its side in the middle of the floor.',
+    'The walls are sweating. Your fingers come away damp and gritty.',
+    'Cobwebs as thick as curtains hang across the corners.',
+    'A stack of crates is stencilled with the arms of a house that no longer exists.',
+    'You hear a scuttling stop the moment you step inside.',
+    'Candle stubs line a shelf, each burned down to a puddle of wax.',
+    'An overturned chair and a half-eaten meal. Whoever left, left in a hurry.',
+    'A row of cheese wheels has gone green and soft, and the smell is astonishing.',
+    'Rusted manacles are bolted to the wall at knee height.',
+    'A trapdoor in the floor has been nailed shut from above.',
+    'Firewood is stacked neatly to the ceiling, dry and ready, as if someone meant to come back.',
+    'Somebody has drawn a crude face on a barrel and given it a crown.',
+    'The floor slopes gently downward, and loose pebbles roll ahead of you.',
+    'A cat’s skeleton sits curled on a shelf, exactly as it fell asleep.',
+    'Jars of pickled eggs line a shelf. Something has eaten all the eggs and left the jars.',
+    'A stone well in the corner breathes out cold air that smells of rain.',
+    'Pale mushrooms grow in a perfect ring in the middle of the floor.']},
+  {upTo:4,name:'The Drowned Halls',
+   rooms:['flooded corridor','pillared hall','sunken chapel','well room','mossy gallery','old bathhouse','drain chamber','fish-bone shrine','tide room','weir','cascade stair','reed-choked hall','pump house','grotto','sluice gate','eel pit'],
+   bits:[
+    'Knee-deep water, cold as a grave, fills the room.',
+    'Pale moss glows faintly on the pillars.',
+    'A cracked mosaic of a sea serpent lies under the water.',
+    'Your footsteps echo as if the room were much larger than it looks.',
+    'Drowned candles float in a ring around a drain.',
+    'Something brushes your ankle under the surface. Probably weed.',
+    'Every drop from the ceiling lands with a small, sharp sound.',
+    'A stone fish spouts water from its mouth into a basin that overflowed long ago.',
+    'The water here is perfectly still and perfectly black.',
+    'Barnacles crust the walls, though the sea is miles away.',
+    'A rowing boat sits upside down on a stone ledge, its hull rotted through.',
+    'Blind white fish dart away from your torchlight.',
+    'The smell of salt and old rope is heavy in the air.',
+    'Waterlogged books float in the shallows, their pages turned to pulp.',
+    'Carvings of drowned saints stare up from the floor beneath the water.',
+    'A low hum comes from the water itself, too deep to place.',
+    'The ceiling is covered in slow-moving ripples of reflected light.',
+    'Mud sucks at your boots with every step.',
+    'A rusted portcullis hangs half-raised over a dark channel.',
+    'Shells crunch underfoot, arranged in spirals by careful hands.',
+    'Your breath fogs in the cold, damp air.',
+    'A bell hangs from the ceiling, green with age. Its clapper is missing.',
+    'Green water drips from the teeth of a carved lion’s head.',
+    'A drowned lantern sits on the bottom of a pool, still faintly glowing.',
+    'Tide marks stripe the walls, the highest one far above your head.',
+    'Frogs as white as paper sit on the stones and do not move.',
+    'An iron grate in the floor gurgles and sighs.',
+    'A rope bridge spans a channel of fast, dark water.',
+    'Old fishing nets hang from the ceiling, heavy with dripping weed.',
+    'The water here is warm, and faint bubbles rise from somewhere below.',
+    'A stone jetty juts out into a pool that has no far edge you can see.',
+    'Crabs the size of plates click across the flagstones and vanish into cracks.',
+    'Rain falls steadily from the ceiling, though there is no sky above.',
+    'A chapel bell rings once, somewhere under the water.',
+    'Silt has filled the room to waist height, leaving a narrow path along one wall.',
+    'Driftwood is piled against a wall as if washed up by a tide.',
+    'Murals of ships and storms have peeled away in long wet strips.',
+    'Something large has left a wide, slick trail across the floor.']},
+  {upTo:6,name:'The Bone Galleries',
+   rooms:['ossuary','burial niche','charnel hall','embalming room','skull-lined passage','family crypt','reliquary','mourners’ hall','bone chapel','catacomb','vault of names','gravediggers’ rest','sexton’s room','lych passage','urn gallery','sealed tomb'],
+   bits:[
+    'Skulls are stacked floor to ceiling, every one facing the door.',
+    'Long bones have been arranged into patterns on the walls.',
+    'A stone sarcophagus sits open and empty.',
+    'Dust rises with each step and hangs in your torchlight.',
+    'Names are written in chalk across the floor, then crossed out.',
+    'It is quiet enough here to hear your own pulse.',
+    'A row of jars holds things that were once inside people.',
+    'A chandelier made of ribs hangs from the ceiling, swaying slightly.',
+    'Burial shrouds hang from pegs like coats in a hall.',
+    'Every niche in the wall holds a small clay lamp, all of them cold.',
+    'Someone has stacked coins on the eyes of the skulls. Most have fallen.',
+    'The air is dry and smells faintly of cedar and old paper.',
+    'A mourner’s veil is snagged on a nail, still fluttering.',
+    'Two skeletons lie together on a stone bench, fingers interlaced.',
+    'The floor is made of gravestones, their writing worn smooth by feet.',
+    'Withered flowers lie at the base of every tomb.',
+    'A shovel leans against the wall, its handle worn to a shine.',
+    'Faint scratching comes from inside one of the sealed niches.',
+    'Bone dust has drifted into the corners like grey snow.',
+    'A ledger on a lectern lists the dead. The last entry is unfinished.',
+    'Tiny skulls, birds and rats, line a shelf in neat rows.',
+    'Your torch flame burns low and blue for no reason you can see.',
+    'Someone has left a lit candle in a skull’s mouth. It has not burned down at all.',
+    'A coffin stands upright against the wall, its lid slightly open.',
+    'Iron cages hang from chains, each one holding a single skull.',
+    'Prayer ribbons are tied to every bone within reach, faded to grey.',
+    'The smell of embalming spices is so strong it makes your eyes water.',
+    'A stone angel weeps real water from its eyes into a cracked bowl.',
+    'A pile of helmets fills one corner, every one dented in the same place.',
+    'Dead moths carpet the floor, crunching softly underfoot.',
+    'A tomb has been broken open from the inside.',
+    'Hundreds of tiny bone figures stand in rows on a long shelf, like an army.',
+    'An organ made of thighbones stands silent against the far wall.',
+    'Black candles have dripped wax down the walls in long, frozen tears.',
+    'The bones in this room are all very small.',
+    'A stone table holds embalming tools laid out in careful order, freshly cleaned.',
+    'Faded paintings of the dead watch you from gilded frames.',
+    'Someone has swept a clean path through the bone dust, and recently.']},
+  {upTo:7,name:'The Ember Forges',
+   rooms:['forge hall','slag pit','bellows chamber','smelting room','anvil gallery','cinder vault','quench pool','ore cart siding','furnace mouth','crucible room','mould store','chain works','ash tunnel','tool racks','cooling hall','smith’s shrine'],
+   bits:[
+    'Old forges glow a dull red, though no one has fed them in centuries.',
+    'Heat shimmers above a channel of cooling slag.',
+    'Cracked hammers hang on the walls in neat rows.',
+    'Ash drifts down like snow from a vent in the ceiling.',
+    'The floor is warm through your boots.',
+    'A half-finished crown sits on an anvil, cold and grey.',
+    'Chains as thick as your arm hang from the ceiling.',
+    'A huge bellows rises and falls on its own, breathing like a sleeper.',
+    'Moulds for swords are stacked against the wall, each one a different shape.',
+    'The air tastes of iron and smoke.',
+    'Sparks drift up from cracks in the floor and wink out.',
+    'A row of armour stands on frames, every piece scorched black.',
+    'The walls ring faintly, as if someone far off were still hammering.',
+    'An ore cart sits on rails that run straight into solid rock.',
+    'A trough of quenching water steams gently, though nothing heats it.',
+    'Soot-black handprints cover one wall, hundreds of them, all small.',
+    'Glowing cinders crunch under your boots like hot gravel.',
+    'A great stone face is carved over the largest furnace, mouth open wide.',
+    'Copper pipes run along the ceiling, ticking as they warm and cool.',
+    'The heat makes sweat run into your eyes.',
+    'A broken sword has been driven into the anvil and left there.',
+    'Something has melted here and run across the floor in a silver tongue.',
+    'Half-finished statues of the Hollow King stand in a row, each one less human than the last.',
+    'A rack of tongs and pincers glows faintly at the tips.',
+    'Slag has cooled into shapes that look uncomfortably like hands.',
+    'A great water wheel turns slowly in a channel of molten copper.',
+    'Iron filings on the floor shift and point toward you as you walk.',
+    'A smith’s apron hangs on a hook, burned through in the shape of a handprint.',
+    'A river of cooled iron has frozen mid-flow across the floor.',
+    'Rows of empty sword hilts hang on pegs, waiting for blades.',
+    'The roar of a furnace comes from behind a door that is not there.',
+    'Charcoal is heaped in a corner, still smouldering after centuries.']},
+  {upTo:8,name:'The Hollow Throne',
+   rooms:['hall of kneeling statues','ember-lit antechamber','throne approach','royal crypt','gallery of banners','king’s vigil','guard hall','robing room','treasury','chapel of the crown','herald’s hall','long gallery','servants’ stair','mirror hall','council chamber'],
+   bits:[
+    'Stone statues kneel along the walls, their faces worn smooth.',
+    'Tattered banners show a crown on a black field.',
+    'Braziers burn with a cold orange light that gives no heat.',
+    'The floor is polished and swept clean by someone, or something.',
+    'Somewhere ahead you hear slow, heavy footsteps.',
+    'Gold leaf flakes from the walls like old skin.',
+    'A long table is set for a feast. The food has turned to dust on the plates.',
+    'Portraits line the wall. The same face, painted older and older, then not at all.',
+    'Every mirror in the room has been turned to face the wall.',
+    'Suits of armour stand at attention. One turns its helm as you pass.',
+    'A red carpet runs down the hall, worn through in a single straight line.',
+    'Coins lie scattered across the floor as if thrown in a rage.',
+    'The air hums faintly, like a held note that never ends.',
+    'Crowns of iron, bronze and wood sit on cushions, each one broken.',
+    'A herald’s horn lies on the floor, dented, its mouthpiece bitten through.',
+    'The ceiling is painted with a night sky. The stars are in the wrong places.',
+    'Ember-light pulses through cracks in the floor like a slow heartbeat.',
+    'Chairs line the walls for courtiers who never came.',
+    'A sword is embedded in the doorframe at head height.',
+    'You smell woodsmoke, though there is no fire anywhere.']},
+];
+const THEMES2=[
+  {upTo:2,name:'The Flooded Cloister',rooms:['cloister walk','refectory','scriptorium','novices\u2019 dormitory','chapter house','herb garden','bakehouse','almonry','lavatorium','infirmary','bell tower stair','porter\u2019s lodge'],
+   bits:['Seawater laps at the edges of a cloister walk, cold and green.','Long tables are set for a meal that sank with the abbey.','Hymnals float face-down in the shallows, their ink running blue.','Rows of narrow beds have drifted together like boats.','Rain falls through a hole in the roof, though you are underground.','A stone saint holds out a bowl that overflows with seawater.','Barnacles cover the carved faces of the abbots on the wall.','The smell of salt and old incense hangs in the air.','A choir stall has been worn smooth by centuries of tide.','Candles still burn in a sealed alcove, in a pocket of trapped air.','Your torch hisses and spits in the wet.','Crabs have made a home in a reliquary, each one wearing a gold ring.','Somewhere above, a bell tolls once, muffled by the water.','Faded frescoes show the abbey being swallowed by the lake.','A wooden ladder leads up into dark water and stops.','Kelp hangs from the beams like green curtains.','Silt covers the floor, printed with bare footprints going one way.','Tiny fish dart between the legs of an overturned altar.','A rope of prayer beads, each bead a pearl, lies tangled in the weed.','The walls drip constantly with a sound like whispering.']},
+  {upTo:4,name:'The Choir Deeps',rooms:['choir loft','sunken nave','organ gallery','baptistery','crypt of the abbesses','song school','vestry','cantor\u2019s cell','great font','music library','clerestory','tide chapel'],
+   bits:['A drowned choir stands in rows, mouths open, silent.','Organ pipes rise from the water like the masts of sunken ships.','Song drifts up from somewhere below, sweet and wrong.','Sheet music papers the walls, every page the same hymn.','A great font has become a deep, dark well.','Pearl-white anemones cover the pews.','Your voice comes back to you from the walls a moment too late.','Stained glass glows with light from beneath the water.','A conductor\u2019s baton lies on a lectern, wrapped in seaweed.','Bubbles rise in a steady stream from a crack in the floor.','Lanterns of green glass float at head height without strings.','The water here is warm, and smells of lilies.','Small bones are set into the floor in the shape of a musical stave.','A carved choirboy holds a finger to his lips.','Water drips from the organ pipes in a slow, steady rhythm.','A hand bell sits on a shelf. You decide not to ring it.','Coral has grown over the confessionals, sealing them shut.','Someone has scratched DON\u2019T LISTEN into every pillar.','Blind white crabs scuttle across the altar steps.','The ceiling is mirrored by the still water below.']},
+  {upTo:6,name:'The Abbess\u2019s Reef',rooms:['coral throne room','pearl beds','grotto of offerings','kelp forest','reef chapel','sunken cloister','abbess\u2019s garden','shell vault','tide pool shrine','drowned gallery','lantern reef','black water stair'],
+   bits:['Living coral has swallowed the walls, pink and orange and white.','Giant clams line the passage, slowly opening and closing.','A forest of kelp sways though there is no current.','Pearls the size of fists lie scattered like gravel.','The water glows faintly blue, lit from somewhere deep below.','Offerings of rings and coins and teeth are heaped on a coral altar.','A school of silver fish turns as one to watch you.','The reef hums, a low note you feel in your teeth.','Statues of nuns kneel here, grown over with coral until they look like corals themselves.','The floor is a mosaic of shells, laid out in a great spiral.','A drowned ship\u2019s figurehead has been propped up like a saint.','Anemones close as your torch passes, then open again behind you.','Your breath comes short, as if the air were running out.','Something huge moves in the deep water beyond the reef.','Bubbles of trapped air cling to the ceiling like silver grapes.','A sea-green banner shows a crown made of waves.','The water tastes of salt and blood.','A starfish as wide as a cartwheel clings to the wall.','Sunlight, impossibly, shines down through the water from far above.','The singing is louder here, and it knows your name.']},
+];
+const THEMES3=[
+  {upTo:2,name:'The Cinder Gate',rooms:['gatehouse','barbican','ash yard','guard tower','cinder road','lava moat bridge','burned stables','smoky barracks','outer ward','murder hole gallery','sally port','watch post'],
+   bits:['Ash falls steadily, settling on your shoulders like grey snow.','The ground is warm and cracked, glowing faintly in the seams.','A portcullis hangs half-melted, iron dripping like wax.','Burned banners hang from the walls, their colours long gone.','The air tastes of sulphur and hot stone.','A river of lava crawls past an arrow slit.','Scorched skeletons lean at their posts, spears still in hand.','Wind howls through the tower, carrying sparks.','Wyvern claw marks gouge the stone walls.','Obsidian glints in the rubble like black glass.','Old soot handprints climb the walls toward the ceiling.','Somewhere far above, something vast shifts in its sleep.','A shrine to a forgotten fire god is piled with burned offerings.','Cinders crunch underfoot like gravel.','The heat makes the far wall ripple.','A brass horn lies on the floor, its mouth melted shut.','Everything here is grey except the glowing cracks.','A row of burned shields hangs on pegs, each from a different land.','Steam vents hiss from the floor in a slow rhythm.','You can see your breath, but it is not cold. It is smoke.']},
+  {upTo:4,name:'The Hanging Halls',rooms:['rope bridge','hanging gallery','chain hall','cage room','windy stair','broken balcony','eyrie walk','spire chapel','bone library','feather hall','lookout','wind shrine'],
+   bits:['The floor ends in a sheer drop. Clouds drift far below.','Cages hang from chains, swaying in the wind. Some are not empty.','A rope bridge creaks across a gap in the tower.','Feathers as long as your arm litter the floor.','Wind screams through broken windows.','Bones of livestock are piled in a corner, cracked open for marrow.','A balcony juts into empty air, its railing torn away.','Lightning flickers in the clouds below you.','The walls are carved with the history of the wyrm, every panel showing a burning city.','Chains run up into the darkness of the spire.','The air is thin, and every breath tastes of ash.','A gargoyle\u2019s empty plinth stands by the door.','Someone has scratched a map of the spire into the floor. Half of it is crossed out.','Stained glass shows a dragon with a crown of clouds.','Nests of sticks and bones cling to the ceiling beams.','The tower sways. You are almost sure the tower sways.','Scraps of fine cloth flutter from nails, the remains of a feast.','A brass telescope points at the sky, its lens cracked.','Hot wind rises from the depths of the tower in slow gusts.','Golden coins are pressed into the walls like scales.']},
+  {upTo:6,name:'The Roost',rooms:['gold drift','wyrm\u2019s larder','scale hall','burned treasury','egg chamber','molting room','crown stair','dragon\u2019s gallery','hoard cave','smoking vents','sky window','vigil of the wyrm'],
+   bits:['Gold coins lie in drifts, fused together by old fire.','Scales the size of shields are scattered across the floor.','The heat is enough to make your eyes stream.','A suit of armor lies crushed flat, the knight still inside.','Smoke curls from the walls, which are warm to the touch.','Treasure is heaped to the ceiling, every piece blackened.','Claw marks run across the floor, deep enough to lose a hand in.','A great window opens onto empty sky.','You hear breathing, slow and deep, like a bellows.','Molten gold drips from the ceiling and hardens on the floor.','Shed skin hangs from a pillar like a burned sail.','The floor trembles in rhythm, as if with a heartbeat.','Crowns from a dozen kingdoms lie in a heap, all of them melted.','A burned tapestry shows a city that no longer exists.','Gems glitter in the walls like eyes.','The smell of sulphur is so strong it makes you dizzy.','The ceiling is lost in a haze of smoke and sparks.','A bone throne sits empty, sized for something enormous.','Arrows by the thousand lie scattered and snapped.','Embers rise past you, drawn upward toward the roost.']},
+];
+const CHAPTERS=[
+  {name:'The Emberdeep',floors:8,themes:THEMES,mons:MONS,boss:BOSS,escort:['skeleton','wraith'],prize:'crown',stairs:'down',
+   throne:{name:'throne of the Hollow King',desc:'A long hall ends in a dais of black stone. On the throne sits a tall figure in rusted plate, a crown of glowing embers resting on its knee.'},
+   lastFloor:'You have reached the bottom of the Emberdeep. Somewhere on this floor, the Hollow King waits.'},
+  {name:'The Drowned Abbey',floors:6,themes:THEMES2,mons:MONS2,boss:BOSS2,escort:['siren','siren'],prize:'tidecrown',stairs:'down',
+   throne:{name:'reef of the Drowned Abbess',desc:'The deepest chapel has become a coral cathedral. On a throne of white reef sits the Drowned Abbess, robes floating around her, the Tide Crown on her brow. Her choir sings around her.'},
+   lastFloor:'The singing is very close now. The Drowned Abbess is somewhere on this floor.',
+   intro:'Beneath the lake at Mirelight, an abbey sank in a single night, and its abbess took the Tide Crown down with her. She is still singing.'},
+  {name:'The Ashen Spire',floors:6,themes:THEMES3,mons:MONS3,boss:BOSS3,escort:['cultist','cultist'],prize:'skycrown',stairs:'up',
+   throne:{name:'roost of the Ash Wyrm',desc:'The top of the spire is open to the sky. Coiled on a hoard of melted gold lies Vharzhul the Ash Wyrm, older than kingdoms, and on one horn hangs the Sky Crown.'},
+   lastFloor:'You have reached the top of the spire. The wind smells of smoke and gold. Vharzhul is here.',
+   intro:'North of Ashmoor, the Ashen Spire rises from a dead volcano. Something with wings has slept at its top for a thousand years, curled around the Sky Crown.'},
+];
+const chap=()=>CHAPTERS[G.chapter||0];
+const FLOORS=()=>chap().floors;
+const themeFor=d=>chap().themes.find(t=>d<=t.upTo);
+const FEATURES={chest:'An iron-bound chest sits against the far wall.',fountain:'A stone fountain still trickles with clear water.',altar:'A small altar holds a guttering candle and an offering bowl.',bones:'The bones of an earlier adventurer lie in a heap, still wearing a pack.'};
+const XPT=[0,15,45,100,180,290,430,600,820,1100,1500,2000,2600,3300,4100];
+
+let G=null,titleState={stage:'class',cls:null},titleLog=[],choiceCache=[];
+
+/* ---------- state helpers ---------- */
+const H=()=>G.party[0];
+const comps=()=>G.party.slice(1);
+const living=()=>G.party.filter(m=>!m.down);
+const room=()=>G.rooms[G.cur];
+const prof=()=>2+Math.floor((G.lvl-1)/4);
+const ac=m=>m.acBase+(m.acb||0)+(G.party[0].cls==='paladin'&&!G.party[0].down?1:0);
+const isRogue=()=>H().cls==='rogue';
+const sneakDice=()=>Math.ceil(G.lvl/2);
+const theM=m=>m.traitor?m.name:m.boss?(m.k==='king'?'the Hollow King':m.k==='abbess'?'the Drowned Abbess':'Vharzhul'):`the ${m.tag?m.tag+' ':''}${m.name}`;
+const hpWord=m=>{const f=m.hp/m.maxhp;return f>=1?'unhurt':f>.6?'scratched':f>.3?'wounded':'badly wounded'};
+const who=(m,you,they)=>m.hero?`You ${you}`:`${m.name} ${they}`;
+function log(text,cls='text',detail=''){G.log.push({t:'p',text,cls,detail});if(G.log.length>260)G.log.splice(0,G.log.length-260)}
+function scene(title,eyebrow,paras){G.log.push({t:'scene',title,eyebrow,paras})}
+function calcMax(m){const c=m.stats.con;return m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)}
+function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)}
+function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
+function makeMon(t){const hp=roll(...t.hp);return{k:t.k,name:t.name,hp,maxhp:hp,ac:t.ac,hit:t.hit,dmg:t.dmg.slice(),xp:t.xp,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
+const monTable=()=>chap().mons.filter(m=>G.depth>=m.min&&G.depth<=m.max);
+function pickItemKey(){const pool=Object.entries(ITEMS).filter(([k,v])=>v.w>0&&(k!=='weapon'||G.depth>=2));let r=rnd(pool.reduce((s,[,v])=>s+v.w,0));for(const [k,v] of pool){if((r-=v.w)<0)return k}return 'potion'}
+function newItem(k){
+  if(k==='gold')return{k,amt:roll(2,6,G.depth*4)};
+  if(k==='weapon'){const id=pick(['shortsword','longsword','battleaxe','warhammer','spear','greatsword','dagger','longbow','staff']);return{k,w:{id,plus:G.depth>=6&&Math.random()<.4?2:1}}}
+  return{k,amt:1};
+}
+
+/* ---------- checks ---------- */
+function helperFor(stat){
+  let best=null;for(const c of comps()){if(c.down||c.loyalty<=1)continue;if(c.stats[stat]>=2&&(!best||c.stats[stat]>best.stats[stat]))best=c}return best;
+}
+function check(stat,dc,label){
+  const h=H(),rl=roll(1,20),m=h.stats[stat],exp=EXPERTISE[h.cls]===stat?3:0,help=helperFor(stat),hb=help?2:0;
+  const target=typeof dc==='function'?dc():dc;
+  const tot=rl+m+exp+hb,ok=rl===20||(rl!==1&&tot>=target);
+  const parts=[`d20 ${rl}`,sgn(m)+' '+stat.toUpperCase()];if(exp)parts.push('+3 expertise');if(help)parts.push(`+2 ${help.name}`);
+  G.log.push({t:'p',cls:'roll '+(ok?'ok':'no'),text:`${label||STATNAME[stat]+' check'}: ${parts.join(' ')} = ${tot} vs ${typeof dc==='function'?'their '+target:'DC '+target}. ${rl===20?'Natural 20! ':rl===1?'Natural 1. ':''}${ok?'Success.':'Failure.'}`});
+  if(ok&&stat==='int'&&G.party.some(m=>m.id==='tessaly'))mood({tessaly:1});
+  return ok;
+}
+
+/* ---------- party ---------- */
+function makeHero(cls,name){
+  const c=CLASSES[cls];
+  return{id:'hero',hero:true,name,cls,title:c.name,role:'hero',hd:c.hd,acBase:c.ac,acb:0,stats:{...c.stats},weapon:{id:c.weapon,plus:0},hp:0,maxhp:0,charges:c.abil.charges,ward:false,down:false,bonusHP:0,rage:0,temp:0};
+}
+function makeComp(id){
+  const t=COMPS[id];
+  const m={id,hero:false,name:t.name,title:t.title,cls:t.cls,role:t.role,hd:t.hd,acBase:t.ac,stats:{...t.stats},weapon:{id:t.weapon,plus:0},hp:0,maxhp:0,heals:2,down:false,sneakUsed:false,bonusHP:0,loyalty:6};
+  m.maxhp=calcMax(m);m.hp=m.maxhp;return m;
+}
+function recruit(id,loyalty=6){
+  const t=COMPS[id];
+  if(G.party.some(m=>m.id===id))return;
+  if(comps().length>=MAX_COMPANIONS){G.evQueue=G.evQueue||[];G.evQueue.push({id:'swap',newId:id,loyalty});log(`${t.name} wants to join you, but your party is full.`,'sys');return}
+  const nc=makeComp(id);nc.loyalty=loyalty;G.party.push(nc);G.flags['met_'+id]=true;
+  log(`${t.name} the ${t.title} joins your party.`,'big');
+  log(`${t.blurb} ${t.name} values ${VALUES[id]}: ${VALUE_HINT[VALUES[id]]}`,'sys');
+}
+const LOYAL_WORD=l=>l>=8?'Devoted':l>=6?'Loyal':l>=4?'Steady':l>=2?'Uneasy':l>=1?'Wavering':'Hostile';
+function mood(map,quiet=false){
+  for(const c of comps()){
+    let d=map[c.id];if(d==null)d=map['*'];if(!d)continue;
+    if(c.loyalty==null)c.loyalty=6;const before=c.loyalty;c.loyalty=Math.max(-3,Math.min(10,c.loyalty+d));
+    if(!quiet)log(`${c.name} ${d>0?(d>1?'approves strongly':'approves'):(d<-1?'is furious':'disapproves')}.`,d>0?'heal':'threat',`loyalty ${before} → ${c.loyalty}`);
+    if(c.loyalty<=2&&before>2&&c.loyalty>0)log(`${c.name} has gone very quiet. Something is wrong.`,'hurt');
+    if(c.loyalty<=0&&!c.betraying)triggerBetrayal(c);
+  }
+}
+function triggerBetrayal(c){
+  c.betraying=true;
+  if(c.id==='corvin'&&room().mons.some(m=>m.aware)){
+    log(`In the middle of the fight, Corvin steps back from the line. “Better offer,” he says, and turns his blade on you.`,'big');
+    turnHostile(c);return;
+  }
+  G.evQueue=G.evQueue||[];G.evQueue.push({id:c.id==='pip'?'pip_thief':'betray',who:c.id});
+}
+function turnHostile(c){
+  G.party=G.party.filter(m=>m!==c);G.flags['traitor_'+c.id]=true;
+  const w=wdef(c.weapon),caster=c.role==='caster',st=WEAPONS[c.weapon.id].stat;
+  const mod=caster?c.stats.int:(st==='finesse'||st==='dex')?Math.max(c.stats.dex,c.stats.str):c.stats.str;
+  const m={k:'traitor',name:c.name,traitor:true,id:c.id,hp:Math.max(c.hp,Math.ceil(c.maxhp*.6)),maxhp:c.maxhp,ac:c.acBase,hit:prof()+mod+w.bonus,
+    dmg:caster?[G.lvl>=5?2:1,10,0]:[w.n,w.d,mod+w.bonus],xp:10+G.lvl*6,slow:false,boss:false,aware:true,tick:0,tag:'',scorched:false,weapon:c.weapon};
+  room().mons.push(m);G.fighting=true;
+}
+
+/* ---------- events (branching, roll-dependent encounters) ---------- */
+const E={
+  fight(keys,after=null,{surprise=false}={}){
+    const r=room(),extra=comps().length>=3?2:comps().length>=2?1:0,t=monTable();keys=keys.slice();
+    for(let i=0;i<extra;i++)keys.push(pick(t).k);
+    for(const k of keys){const m=makeMon(MONK[k]);m.aware=!surprise;r.mons.push(m)}retag(r);
+    if(extra)log(`${extra>1?'More of them come':'Another one comes'} running at the sound. A bigger party draws a bigger crowd.`,'threat');
+    G.ev.waiting=true;G.ev.after=after;if(!surprise)G.fighting=true;
+  },
+  give(id){G.pack.weapons.push({id,plus:0});const d=WEAPONS[id];log(`You gain ${d.name}. ${d.lore}`,'mythic');log(`Equip it, or hand it to a companion, from Party & gear.`,'sys')},
+  item(k){take(newItem(k),true)},
+  gold(n){if(n==null)return G.gold;G.gold=Math.max(0,G.gold+n);return G.gold},
+  dmg(n,d,b=0,what='a wound'){const h=H(),x=roll(n,d,b);h.hp-=x;log(`You take ${x} damage.`,'hurt',dstr(n,d,b));if(h.hp<=0){h.hp=0;die(what)}return x},
+  healAll(){for(const m of G.party){m.down=false;m.hp=m.maxhp}},
+  maxhp(n){const h=H();h.bonusHP+=n;h.maxhp=calcMax(h);h.hp=Math.min(h.maxhp,h.hp+Math.max(0,n));if(h.hp<=0){h.hp=1}},
+  flag(k){G.flags[k]=true},has:k=>!!G.flags[k],
+  farSight(){for(const r of Object.values(G.rooms))r.seen=true;G.farSight=true},
+  recruit,mood,
+  full:()=>comps().length>=MAX_COMPANIONS,
+};
+const EVENTS={
+  smith:{min:1,max:3,recruit:true,title:'The chained smith',nodes:{
+    start:{t:'Goblins have a dwarf chained to a handcart and are making him sharpen a pile of spears. He has a soot-black beard and arms like tree roots. He catches your eye and nods, very slightly, at the padlock.',o:[
+      {l:'Attack the goblins',sub:'Fight them head on',go:'fight'},
+      {l:'Bluff: claim the dwarf belongs to your lord',check:['cha',13],ok:'bluffok',no:'bluffno'},
+      {l:'Creep behind the cart and pick the lock',check:['dex',14],ok:'lockok',no:'lockno'},
+      {l:'Leave him to it',go:'leave'}]},
+    fight:{t:'You charge. The goblins drop their whetstones and grab spears.',fx:()=>E.fight(['goblin',G.depth>1?'goblin':'kobold'],'freed')},
+    bluffok:{t:'“Lord’s property,” you snap, “and he’s late.” The goblins look at each other, decide this is above their station, and scurry off into the dark.',next:'freed'},
+    bluffno:{t:'The bigger goblin squints. “Lord who?” Then they come at you.',fx:()=>E.fight(['goblin',G.depth>1?'goblin':'kobold'],'freed')},
+    lockok:{t:'The lock opens with a soft click. The dwarf slips his chain, takes up a hammer, and the two of you fall on the goblins before they turn round.',fx:()=>{E.recruit('brannoc',8);E.fight(['goblin',G.depth>1?'goblin':'kobold'],'joined',{surprise:true})}},
+    lockno:{t:'Your pick snaps with a loud ping. Both goblins spin round.',fx:()=>E.fight(['goblin',G.depth>1?'goblin':'kobold'],'freed')},
+    freed:{t:'The dwarf rubs his raw wrists. “Brannoc Ironhand, smith of Ashmoor. They took me three winters ago. I owe you my life, and I pay my debts.”',o:[
+      {l:'Ask him to join you',sub:'Gain a sturdy front-liner',go:'join'},
+      {l:'Tell him to get to the surface safely',sub:'He may have something for you',go:'gift'}]},
+    join:{fx:()=>{E.recruit('brannoc',8);E.mood({ysolde:1})},t:'“Then I walk at the front,” he says, hefting a goblin hammer. “I’m harder to kill than I look.”',end:true},
+    gift:{t:'He presses a runed whetstone into your hand. “Then take this. Keep your edge, and I’ll keep a seat by the fire for you.”',fx:()=>{E.item('whet');E.flag('brannoc_free')},end:true},
+    joined:{t:'Brannoc wipes his hammer on a goblin’s shirt. “Brannoc Ironhand. I walk with you now, whether you like it or not.”',end:true},
+    leave:{t:'You slip past. Behind you, the scrape of the whetstone goes on and on.',fx:()=>{E.flag('left_brannoc');E.mood({ysolde:-1})},end:true}}},
+
+  priest:{min:1,max:4,recruit:true,title:'A circle of salt',nodes:{
+    start:{t:'A woman in a grey robe kneels inside a circle of salt, praying aloud. A grey ooze circles her, testing the line. Each time it touches the salt it hisses and draws back. The line is getting thinner.',o:[
+      {l:'Attack the ooze',go:'fight'},
+      {l:'Drive it off with your torch',check:['wis',12],ok:'scare',no:'scareno'},
+      {l:'Shout to her to run for the door',check:['cha',12],ok:'run',no:'runno'},
+      {l:'Leave quietly',go:'leave'}]},
+    fight:{t:'You step in. The ooze turns toward the warmth of your torch.',fx:()=>E.fight(['ooze'],'thanks')},
+    scare:{t:'You thrust the torch at the ooze. It shrinks from the heat and pours itself down a drain.',next:'thanks'},
+    scareno:{t:'The ooze lunges at the torch instead of shrinking from it.',fx:()=>E.fight(['ooze'],'thanks')},
+    run:{t:'“Now!” you shout. She leaps the ooze and lands beside you, breathless and laughing.',next:'thanks'},
+    runno:{t:'She hesitates too long, and the ooze slides between you.',fx:()=>E.fight(['ooze'],'thanks')},
+    thanks:{t:'“Ysolde, of the Lantern,” she says. “I came down to bless the dead and found they would rather eat me. Let me walk with you. I can mend what the dark breaks.”',o:[
+      {l:'Welcome her to the party',sub:'Gain a healer',go:'join'},
+      {l:'Ask for a blessing instead',sub:'A lasting gift',go:'bless'}]},
+    join:{fx:()=>E.recruit('ysolde',7),t:'She tucks her prayer beads into her sleeve and lifts her mace. “Lead on.”',end:true},
+    bless:{t:'She lays a hand on your brow and murmurs. Warmth floods through you and your wounds close. +4 maximum HP.',fx:()=>{E.maxhp(4);E.healAll();E.flag('blessed_ysolde')},end:true},
+    leave:{t:'You back away. Her prayer follows you down the corridor, a little faster now.',fx:()=>{E.flag('left_ysolde');E.mood({brannoc:-1})},end:true}}},
+
+  kobold:{min:1,max:5,recruit:true,title:'Pip',nodes:{
+    start:{t:'A kobold steps out from behind a pillar, aiming a crossbow almost as big as he is. “Stop! Pip is done with this. Pip wants to go home, but home is down, and down is dangerous. You look dangerous. Take Pip with you?”',o:[
+      {l:'Hear him out',go:'offer'},
+      {l:'Intimidate him into guiding you',check:['str',12],ok:'intok',no:'intno'},
+      {l:'Attack him',go:'fight'}]},
+    offer:{t:'“Pip knows the tunnels. Pip knows where the stairs are, every floor. Pip only wants a little gold. Fifteen. For courage.”',o:[
+      {l:'Pay him 15 gold',if:()=>G.gold>=15,go:'paid'},
+      {l:'Convince him he is safer with you',check:['cha',12],ok:'free',no:'robbed'},
+      {l:'Send him away',go:'away'}]},
+    paid:{t:'He bites each coin. “Good. Pip is yours. The stairs are that way.” He sketches the floor in the dust, and suddenly you know its layout.',fx:()=>{E.gold(-15);E.recruit('pip',6);E.farSight()},end:true},
+    free:{t:'“You are right. You are very right. Pip will stay very close to you.” He sketches the floor in the dust for you.',fx:()=>{E.recruit('pip',5);E.farSight()},end:true},
+    robbed:{t:'He nods sadly and melts into the dark.',fx:()=>{const n=Math.min(G.gold,roll(2,6));E.gold(-n);E.flag('pip_thief');return n?`A moment later you notice ${n} of your coins went with him.`:''},end:true},
+    intok:{t:'You loom over him. Pip drops the crossbow. “Pip will guide! Pip will guide!” He sketches the floor in the dust.',fx:()=>{E.recruit('pip',2);E.farSight()},end:true},
+    intno:{t:'He shoots you in the leg and scampers off, cackling.',fx:()=>{E.dmg(1,6,0,'a kobold’s bolt')},end:true},
+    fight:{t:'Pip squeaks and fires.',fx:()=>{E.mood({ysolde:-1});E.fight(['kobold'])}},
+    away:{t:'“Fine! Pip will find someone nicer!” He stomps off.',end:true}}},
+
+  ranger:{min:3,max:6,recruit:true,title:'Snared',nodes:{
+    start:{t:'A woman in a green cloak hangs upside down from a snare, her bow just out of reach below her. A ghoul crouches beneath, patient as a cat, waiting for her to tire.',o:[
+      {l:'Attack the ghoul',go:'fight'},
+      {l:'Throw a blade to cut the rope',check:['dex',14],ok:'cut',no:'cutno'},
+      {l:'Taunt the ghoul so she can work free',check:['cha',13],ok:'cut2',no:'cutno'},
+      {l:'Leave her',go:'leave'}]},
+    fight:{t:'You charge the ghoul. It turns, grinning with too many teeth.',fx:()=>E.fight(['ghoul'],'thanks')},
+    cut:{t:'Your blade parts the rope. She drops, rolls, comes up with her bow drawn, and puts an arrow in the ghoul’s shoulder.',fx:()=>{E.recruit('maren',7);E.fight(['ghoul'],'joined')}},
+    cut2:{t:'You shout and wave your torch. The ghoul turns, and behind it she twists free, drops, and snatches up her bow.',fx:()=>{E.recruit('maren',7);E.fight(['ghoul'],'joined')}},
+    cutno:{t:'It doesn’t work. The ghoul turns its milky eyes on you instead.',fx:()=>E.fight(['ghoul'],'thanks')},
+    thanks:{t:'You cut her down. “Maren, of the Thornwood. I tracked that thing down here, and it tracked me back.” She strings her bow. “I hunt better with company.”',o:[
+      {l:'Take her with you',sub:'Gain an archer',go:'join'},
+      {l:'Ask what she found down here',sub:'She carries something strange',go:'gift'}]},
+    join:{fx:()=>E.recruit('maren',7),t:'“Good. Keep your torch low, and stay out of my line.”',end:true},
+    gift:{t:'She unwraps a spear bound in green copper wire. “Took it from a storm giant’s grave. It bites. You’ll need it more than me.”',fx:()=>E.give('stormcaller'),end:true},
+    joined:{t:'Maren retrieves her arrows from the ghoul. “Maren, of the Thornwood. I owe you. I’ll be paying it back with these.”',end:true},
+    leave:{t:'You keep to the shadows and leave her to it.',fx:()=>{E.flag('left_maren');E.mood({brannoc:-1,ysolde:-1})},end:true}}},
+
+  witch:{min:4,max:7,recruit:true,title:'Tea for two',nodes:{
+    start:{t:'In the middle of a crypt sits a small table set for two. An old woman is pouring tea into chipped cups. “Sit, sit. I am Tessaly, and I have been bored to death down here, and I do mean that. Answer me a riddle and I’ll come along and set things on fire for you.”',o:[
+      {l:'Sit and hear the riddle',go:'riddle'},{l:'Decline politely',go:'decline'},{l:'Attack her',go:'attack'}]},
+    riddle:{t:'“What has roots that nobody sees, is taller than trees; up, up it goes, and yet never grows?”',o:[
+      {l:'“A mountain.”',go:'right'},{l:'“A tree.”',go:'wrong'},{l:'“A shadow.”',go:'wrong'},{l:'Think it over carefully',check:['int',13],ok:'think',no:'wrong'}]},
+    think:{t:'Roots no one sees. Taller than trees. You smile. “A mountain.”',next:'right'},
+    right:{t:'She claps. “Finally, someone with a brain.” She drains her tea and stands, and her shadow stands up a moment after she does.',fx:()=>E.recruit('tessaly',6),end:true},
+    wrong:{t:'“Wrong,” she says sadly. “Still, you sat down, which is more than most.” She gives you a scroll and vanishes in a flutter of moths.',fx:()=>E.item('fire'),end:true},
+    decline:{t:'“Your loss,” she says, and goes back to her tea.',end:true},
+    attack:{t:'Before you can draw, she bursts into a swarm of moths. They bite.',fx:()=>{E.dmg(2,6,0,'a swarm of moths');E.flag('angered_witch');E.mood({ysolde:-1})},end:true}}},
+
+  sellsword:{min:2,max:7,recruit:true,title:'Coin for a blade',nodes:{
+    start:{t:'A scarred man in good armor sits on an upturned crate, flipping a coin. A greatsword leans beside him. “Corvin. I fight for coin. Forty gold and I’ll follow you to the bottom. Or we roll dice for it. Beat me and I come free. Lose and I take ten.”',o:[
+      {l:'Pay him 40 gold',if:()=>G.gold>=40,go:'paid'},
+      {l:'Roll dice against him',sub:'Charisma vs his roll',check:['cha',()=>roll(1,20,3),'Dice against Corvin'],ok:'won',no:'lost'},
+      {l:'Walk away',go:'leave'}]},
+    paid:{t:'He counts it twice, then stands. “To the bottom, then.”',fx:()=>{E.gold(-40);E.recruit('corvin',6)},end:true},
+    won:{t:'He stares at the dice a long moment, then laughs. “Fair’s fair.”',fx:()=>E.recruit('corvin',4),end:true},
+    lost:{t:'“Bad luck.” He pockets your coins. “The offer stands.”',fx:()=>{E.gold(-Math.min(10,G.gold))},next:'start'},
+    leave:{t:'He shrugs and goes back to flipping his coin.',end:true}}},
+
+  pool:{min:2,max:5,title:'Cinderfang',nodes:{
+    start:{t:'At the bottom of a clear, still pool lies a longsword, glowing like a coal. The water around it steams. Carved into the rim: CINDERFANG. IT BURNS ONLY THE UNWORTHY.',o:[
+      {l:'Reach in and grab it',check:['con',13],ok:'got',no:'burn'},
+      {l:'Fish it out with a spear shaft',check:['int',12],ok:'got',no:'sunk'},
+      {l:'Leave it',go:'leave'}]},
+    got:{t:'Your hand closes on the hilt. It is hot, but it does not burn you.',fx:()=>E.give('cinderfang'),end:true},
+    burn:{t:'The water scalds you and you snatch your hand back.',fx:()=>{E.dmg(2,6,0,'a scalding pool')},next:'start'},
+    sunk:{t:'The sword slides off the shaft and drops into a crack at the bottom of the pool. It is gone.',end:true},
+    leave:{t:'You leave the sword glowing in the dark.',end:true}}},
+
+  blade:{min:3,max:5,title:'The broken king',nodes:{
+    start:{t:'A skeleton in tarnished royal armor sits against the wall, still gripping the hilt of a broken sword. The rest of the blade is gone. Scratched into the stone beside it, in a shaking hand: HE CANNOT BE KILLED BY ANYTHING HE MADE. FIRE STOPS HIM MENDING.',o:[
+      {l:'Take the broken hilt',go:'take'},
+      {l:'Search the body first',check:['int',12],ok:'search',no:'searchno'},
+      {l:'Leave the dead in peace',go:'leave'}]},
+    take:{t:'The hilt is cold and heavy. A name is worked into the guard: KINGSBANE. A great forge might make it whole again.',fx:()=>E.flag('hilt'),end:true},
+    search:{t:'Under the breastplate you find a sealed Healing Draught. You take the hilt too. A name is worked into the guard: KINGSBANE. A great forge might make it whole again.',fx:()=>{E.flag('hilt');E.item('potion')},end:true},
+    searchno:{t:'As you lean close, the skull turns toward you. A dry voice says, “Take it. End him.” The hilt drops into your hand. KINGSBANE, says the guard.',fx:()=>E.flag('hilt'),end:true},
+    leave:{t:'You bow your head and leave the old king where he fell.',end:true}}},
+
+  forge:{min:7,max:7,need:()=>E.has('hilt'),must:()=>true,title:'The Ember Forge',nodes:{
+    start:{t:'In the greatest of the forges, the fire is alive. It has a face, and the face turns to you. “I smell my own work on you. Kingsbane. I made it, and the Hollow King broke it. Feed me something precious and I will make it whole.”',o:[
+      {l:'Feed it 60 gold',if:()=>G.gold>=60,go:'gold'},
+      {l:'Feed it a mythic weapon',if:()=>G.pack.weapons.some(w=>WEAPONS[w.id].mythic),sub:'The first one in your pack',go:'weapon'},
+      {l:'Feed it your blood',sub:'Lose 6 maximum HP for good',go:'blood'},
+      {l:'Bargain with the fire',check:['cha',15],ok:'forged',no:'angry'},
+      {l:'Keep the hilt and leave',go:'leave'}]},
+    gold:{t:'The coins melt as they touch the flames.',fx:()=>E.gold(-60),next:'forged'},
+    weapon:{t:'You lay the weapon in the coals. The fire drinks it in.',fx:()=>{const i=G.pack.weapons.findIndex(w=>WEAPONS[w.id].mythic);G.pack.weapons.splice(i,1)},next:'forged'},
+    blood:{t:'You cut your palm and let the blood hiss into the coals. You feel something leave you that will not come back.',fx:()=>{E.maxhp(-6);E.mood({brannoc:1,gruk:1})},next:'forged'},
+    forged:{t:'The fire roars. When it dies down, a whole sword lies on the anvil, its blade shimmering like heat haze.',fx:()=>{E.give('kingsbane');E.flag('kingsbane')},end:true},
+    angry:{t:'“You haggle with ME?” The fire lashes out.',fx:()=>{E.dmg(2,8,0,'the Ember Forge')},next:'start'},
+    leave:{t:'The fire watches you go. “He will mend,” it calls after you, “unless you burn him.”',end:true}}},
+
+  anvil:{min:6,max:7,need:()=>!E.has('hilt'),title:'The tempering fire',nodes:{
+    start:{t:'One forge here still burns hot, and a great anvil stands beside it with hammers ready. You could temper a blade here.',o:[
+      {l:'Work the bellows and temper your weapon',check:['str',13],ok:'good',no:'bad'},
+      {l:'Leave the forge',go:'leave'}]},
+    good:{t:'You heat, hammer and quench until your arms ache. The edge comes out keen and bright. Your weapon gains +1.',fx:()=>{H().weapon.plus=(H().weapon.plus||0)+1},end:true},
+    bad:{t:'The heat is too much. You burn your hands and the steel comes out no better.',fx:()=>{E.dmg(1,8,0,'a forge fire')},end:true},
+    leave:{t:'You leave the fire to burn.',end:true}}},
+
+  dagger:{min:1,max:4,title:'The whispering dagger',nodes:{
+    start:{t:'A dagger is stuck in a door, quivering. As you get close you hear it whispering. Take me. Take me. I am so very sharp.',o:[
+      {l:'Pull it free',check:['wis',12,'Wisdom save'],ok:'took',no:'cursed'},
+      {l:'Snap the blade',check:['str',12],ok:'snap',no:'snapno'},
+      {l:'Leave it whispering',go:'leave'}]},
+    took:{t:'You close your mind to its voice and pull it out. It goes quiet, sulking. Its name, it tells you later, is Hush.',fx:()=>E.give('hush'),end:true},
+    cursed:{t:'You pull it free and the whispering pours into your head. It is still sharp, and it is yours, but it never stops talking. -3 maximum HP.',fx:()=>{E.give('hush');E.maxhp(-3)},end:true},
+    snap:{t:'You put your boot to the blade and it snaps. A sigh of relief seems to pass through the walls. You feel lighter. +2 maximum HP.',fx:()=>E.maxhp(2),end:true},
+    snapno:{t:'The blade won’t break. It laughs at you.',next:'start'},
+    leave:{t:'Its whispering follows you for a long time.',end:true}}},
+
+  tomb:{min:5,max:7,title:'The knight’s tomb',nodes:{
+    start:{t:'A knight’s stone tomb fills the center of the room. A warhammer has been set into the lid, its head carved with a closed eye. The inscription reads: GRAVEWARDEN. SHE KEPT THE DEAD IN THEIR GRAVES.',o:[
+      {l:'Pull the hammer free',check:['str',14],ok:'got',no:'woke'},
+      {l:'Pray for the knight',check:['wis',12],ok:'prayed',no:'woke'},
+      {l:'Leave the tomb alone',go:'leave'}]},
+    got:{t:'With a grinding wrench the hammer comes free. It feels lighter than it should.',fx:()=>E.give('gravewarden'),end:true},
+    prayed:{t:'You speak a prayer for the knight. The stone lid sighs, and the hammer slides loose into your hands.',fx:()=>E.give('gravewarden'),end:true},
+    woke:{t:'The lid grinds. Bones rattle in the walls, and two skeletons step out of their niches to guard the tomb.',fx:()=>E.fight(['skeleton','skeleton'],'after')},
+    after:{t:'With its guards destroyed, the hammer slides loose from the lid.',fx:()=>E.give('gravewarden'),end:true},
+    leave:{t:'You leave the knight to her rest.',end:true}}},
+
+  merchant:{ch:'any',min:2,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden'].filter(id=>!owns(id)))||null},nodes:{
+    start:{t:ev=>`A skeleton in a merchant’s velvet hat has set up a stall on a coffin lid. “Customers! Living ones! Everything must go.”${ev.stock?` In pride of place lies ${WEAPONS[ev.stock].name}: ${WEAPONS[ev.stock].lore}`:''}`,o:[
+      {l:'Buy a Healing Draught',sub:'20 gold',if:()=>G.gold>=20,go:'potion'},
+      {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'scroll'},
+      {l:ev=>`Buy ${WEAPONS[ev.stock].name}`,sub:'90 gold',if:ev=>ev.stock&&G.gold>=90,go:'weapon'},
+      {l:'Haggle for a discount on the weapon',sub:'Pay 50 if it works',if:ev=>ev.stock&&G.gold>=50&&!ev.haggled,check:['cha',14],ok:'deal',no:'nodeal'},
+      {l:'Try to steal the weapon',if:ev=>ev.stock,check:['dex',15],ok:'stole',no:'caught'},
+      {l:'Leave the stall',go:'leave'}]},
+    potion:{t:'“A fine choice!”',fx:()=>{E.gold(-20);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'start'},
+    scroll:{t:'“Handle it carefully.”',fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'start'},
+    weapon:{t:'“It was a pleasure, truly.”',fx:()=>{E.gold(-90);E.give(G.ev.stock);G.ev.stock=null},next:'start'},
+    deal:{t:'“You drive a hard bargain for someone with skin.”',fx:()=>{E.gold(-50);E.give(G.ev.stock);G.ev.stock=null},next:'start'},
+    nodeal:{t:'“Ninety. I have to eat. Well, no, I don’t. But ninety.”',fx:()=>{G.ev.haggled=true},next:'start'},
+    stole:{t:'While he polishes a skull, you lift the weapon and walk away. He never notices.',fx:()=>{E.give(G.ev.stock);G.ev.stock=null;E.flag('robbed_merchant');E.mood({pip:2,ysolde:-2,brannoc:-2})},end:true},
+    caught:{t:'“THIEF!” His jaw drops off with the force of it. Two bodyguards step out of the shadows.',fx:()=>E.fight(['skeleton','skeleton'])},
+    leave:{t:'“Come back soon! Or don’t. Most don’t.”',end:true}}},
+
+  orc:{min:3,max:5,title:'The deserter',nodes:{
+    start:{t:'An orc sits propped against the wall, one leg bent the wrong way. His axe is out of reach. He looks at you and doesn’t bother to beg. “Go on, then.”',o:[
+      {l:'Give him a Healing Draught',if:()=>G.pack.potion>0,go:'help'},
+      {l:'Set his leg',check:['wis',13],ok:'set',no:'setno'},
+      {l:'End his suffering',go:'kill'},
+      {l:'Leave him',go:'leave'}]},
+    help:{t:'He drinks it, stares at you, and laughs. “Gruk. I left the warband. They’ll be waiting further down. When they see you, I will be there.”',fx:()=>{G.pack.potion--;E.flag('orc_friend');E.mood({ysolde:1,brannoc:1})},end:true},
+    set:{t:'You set the bone with a sharp crack. He grunts, then grins. “Gruk. I left the warband. They’ll be waiting further down. When they see you, I will be there.”',fx:()=>{E.flag('orc_friend');E.mood({ysolde:1,brannoc:1})},end:true},
+    setno:{t:'You make it worse. He howls and shoves you away. “Go. Just go.”',end:true},
+    kill:{t:'It is quick. On his belt you find a pouch of gold, and a carved tusk bearing the mark of his warband.',fx:()=>{E.gold(roll(3,6,10));E.flag('orc_killed');E.mood({ysolde:-2,brannoc:-1,pip:1})},end:true},
+    leave:{t:'You leave him in the dark.',fx:()=>E.mood({ysolde:-1}),end:true}}},
+
+  warband:{min:6,max:8,need:()=>E.has('orc_friend')||E.has('orc_killed'),must:()=>true,title:'The warband',nodes:{
+    start:{t:()=>E.has('orc_friend')?'Orcs fill the hall, a whole warband, axes ready. Then a familiar shape limps to the front. “This one,” says Gruk, “fixed my leg.” The warband lowers its axes.':'Orcs fill the hall, a whole warband. Their chief holds up a carved tusk, the twin of the one you took. “You killed my brother.”',o:[
+      {l:'Ask Gruk to join you',if:()=>E.has('orc_friend'),go:'gruk'},
+      {l:'Ask for safe passage and a gift',if:()=>E.has('orc_friend'),go:'passage'},
+      {l:'Tell him his brother died well',if:()=>E.has('orc_killed'),check:['cha',15],ok:'calm',no:'fight'},
+      {l:'Fight',if:()=>E.has('orc_killed'),go:'fight'}]},
+    gruk:{t:'Gruk shoulders his axe. “A debt is a debt.”',fx:()=>E.recruit('gruk',8),end:true},
+    passage:{t:'The chief tosses you a battleaxe. “For fixing my idiot brother.” The warband parts to let you through.',fx:()=>{G.pack.weapons.push({id:'battleaxe',plus:2});log('You gain a +2 battleaxe.','loot')},end:true},
+    calm:{t:'The chief is silent a long time. “Then go. Before I change my mind.”',end:true},
+    fight:{t:'The warband roars and charges.',fx:()=>E.fight(['orc','orc'].concat(comps().length>=2?['orc']:[]))}}},
+
+  bones_brannoc:{min:3,max:6,need:()=>E.has('left_brannoc'),must:()=>true,title:'Left behind',nodes:{
+    start:{t:'The dwarf you left at the goblins’ cart lies against the wall. They worked him until he dropped. His hammer is still in his hand.',o:[
+      {l:'Take his hammer',go:'take'},{l:'Build him a cairn',go:'cairn'}]},
+    take:{t:'You pry the hammer from his fingers. It is good steel.',fx:()=>{G.pack.weapons.push({id:'warhammer',plus:1});log('You gain a +1 warhammer.','loot')},end:true},
+    cairn:{t:'You pile stones over him, one by one. When you are done you feel steadier, as if someone were watching your back. +1 AC for the rest of this floor... and a little longer.',fx:()=>{H().acb++},end:true}}},
+};
+Object.assign(EVENTS,{
+  betray:{special:true,repeat:true,title:'Betrayal',nodes:{
+    start:{t:ev=>BETRAY[ev.who],o:[
+      {l:ev=>`Talk ${COMPS[ev.who].name} down`,check:['cha',14],ok:'calm',no:'turn'},
+      {l:ev=>`Pay ${COMPS[ev.who].name} off: ${payoff()} gold`,if:()=>G.gold>=payoff(),go:'paid'},
+      {l:ev=>`Let ${COMPS[ev.who].name} go`,sub:'They leave with their weapon',go:'leave'},
+      {l:'Draw your weapon',sub:'Fight them',go:'fight'}]},
+    calm:{t:ev=>`You talk for a long time. Slowly, ${COMPS[ev.who].name} lowers their weapon. “One more chance. Don’t waste it.”`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c){c.loyalty=4;c.betraying=false}},end:true},
+    paid:{t:ev=>`${COMPS[ev.who].name} weighs the purse, nods once, and walks away into the dark without looking back.`,fx:ev=>{E.gold(-payoff());leaveParty(ev.who)},end:true},
+    leave:{t:ev=>`${COMPS[ev.who].name} backs away, then turns and is gone. You hear their footsteps for a long time.`,fx:ev=>leaveParty(ev.who),end:true},
+    turn:{t:ev=>`Your words only make it worse. ${COMPS[ev.who].name} attacks!`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c){turnHostile(c);G.ev.waiting=true;G.ev.after=null}}},
+    fight:{t:ev=>`Steel rings as you draw. ${COMPS[ev.who].name} comes at you.`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c){turnHostile(c);G.ev.waiting=true;G.ev.after=null}}}}},
+  pip_thief:{special:true,repeat:true,title:'Light fingers',nodes:{
+    start:{t:'A soft clink. You look up to see Pip halfway out of the room, your coin purse in one hand and a Healing Draught in the other.',o:[
+      {l:'Grab him',check:['dex',13],ok:'caught',no:'gone'},
+      {l:'Shout at him to stop',check:['cha',15],ok:'caught',no:'gone'},
+      {l:'Let him go',go:'gone'}]},
+    caught:{t:'You catch him by the tail. He drops everything and covers his face. “Pip is sorry! Pip is SO sorry!”',o:[
+      {l:'Forgive him',sub:'He stays, but he is uneasy',go:'forgive'},{l:'Send him away',go:'out'},{l:'Strike him down',go:'kill'}]},
+    forgive:{t:'He snivels his thanks and stays very close to you after that.',fx:()=>{const c=G.party.find(m=>m.id==='pip');if(c){c.loyalty=3;c.betraying=false}},end:true},
+    out:{t:'You point at the dark. Pip goes, muttering.',fx:()=>leaveParty('pip'),end:true},
+    kill:{t:'He never sees it coming.',fx:()=>{const c=G.party.find(m=>m.id==='pip');leaveParty('pip');G.flags.dead_pip=true;if(c)G.pack.weapons.push(c.weapon);E.mood({ysolde:-2,brannoc:-1,gruk:1})},end:true},
+    gone:{t:'He is gone before you can reach him.',fx:()=>{const n=Math.floor(G.gold/2),p=G.pack.potion>0;E.gold(-n);if(p)G.pack.potion--;leaveParty('pip');return `Pip took ${n} gold${p?' and a Healing Draught':''} with him.`},end:true}}},
+  wages:{special:true,repeat:true,title:'Wages',nodes:{
+    start:{t:'At the foot of the stairs, Corvin holds out his hand. “Wages. Fifteen a floor, as agreed.”',o:[
+      {l:'Pay him 15 gold',if:()=>G.gold>=15,go:'paid'},
+      {l:'Pay him 30, with thanks',sub:'A bonus buys loyalty',if:()=>G.gold>=30,go:'bonus'},
+      {l:'Ask him to wait until the next floor',check:['cha',13],ok:'wait',no:'refused'},
+      {l:'Refuse',go:'refused'}]},
+    paid:{t:'He counts it and pockets it. “Good.”',fx:()=>{E.gold(-15);E.mood({corvin:1})},end:true},
+    bonus:{t:'He raises an eyebrow, then smiles for the first time. “You’re all right.”',fx:()=>{E.gold(-30);E.mood({corvin:3})},end:true},
+    wait:{t:'“Fine. Next floor. Don’t make me ask twice.”',fx:()=>E.mood({corvin:-1}),end:true},
+    refused:{t:'His jaw tightens. He says nothing at all.',fx:()=>E.mood({corvin:-3}),end:true}}},
+  share:{special:true,repeat:true,title:'Pip’s share',nodes:{
+    start:{t:'Pip tugs at your sleeve and eyes your purse. “Pip carried things. Pip found things. Pip wants a share. Ten gold?”',o:[
+      {l:'Give him 10 gold',if:()=>G.gold>=10,go:'paid'},
+      {l:'Give him a weapon from your pack',if:()=>G.pack.weapons.length>0,go:'weapon'},
+      {l:'Promise him a bigger share at the end',check:['cha',12],ok:'promise',no:'sulk'},
+      {l:'Tell him no',go:'sulk'}]},
+    paid:{t:'He bites every coin and does a little dance.',fx:()=>{E.gold(-10);E.mood({pip:2})},end:true},
+    weapon:{t:'His eyes go wide. He clutches it like a baby.',fx:()=>{const w=G.pack.weapons.shift();log(`You give Pip the ${wname(w)}. He will probably sell it.`,'loot');E.mood({pip:3})},end:true},
+    promise:{t:'“A BIGGER share. Pip will remember.”',end:true},
+    sulk:{t:'He sulks and kicks a pebble into the dark.',fx:()=>E.mood({pip:-2}),end:true}}},
+});
+Object.assign(EVENTS,{
+  /* chapter 2: the Drowned Abbey */
+  novice:{ch:1,min:1,max:3,recruit:true,title:'The bell rope',nodes:{
+    start:{t:'In a bell tower half full of water, a young novice clings to the bell rope above the surface. Below her, a drowned thrall waits with its arms out. \u201cPlease,\u201d she whispers. \u201cI\u2019ve been praying for three days.\u201d',o:[
+      {l:'Attack the thrall',go:'fight'},
+      {l:'Swim under and pull her across',check:['str',14],ok:'swim',no:'swimno'},
+      {l:'Ring the bell to drive it off',sub:'Thralls hate the bell',check:['wis',13],ok:'bell',no:'swimno'},
+      {l:'Leave her',go:'leave'}]},
+    fight:{t:'You wade in. The thrall turns with a sound like a sigh.',fx:()=>E.fight(['thrall'],'thanks')},
+    swim:{t:'You dive, haul her down and across, and come up gasping on the far side. The thrall never sees you.',next:'thanks'},
+    bell:{t:'You grab the rope and haul. The bell booms through the water, and the thrall flees, clutching its ears.',next:'thanks'},
+    swimno:{t:'It goes wrong. The thrall lunges for you instead.',fx:()=>E.fight(['thrall'],'thanks')},
+    thanks:{t:'\u201cNell. Sister Nell, I suppose, though I never took my vows.\u201d She wrings out her habit. \u201cThe Lady of the Waters kept me alive for a reason. Maybe it\u2019s you.\u201d',o:[
+      {l:'Ask her to come with you',sub:'Gain a healer',go:'join'},
+      {l:'Send her to the surface with a blessing',sub:'She has something to give',go:'gift'}]},
+    join:{t:'\u201cThen I\u2019ll pray for all of us.\u201d',fx:()=>E.recruit('nell',7),end:true},
+    gift:{t:'She presses a vial of holy water into your hands and kisses your forehead. Everyone feels steadier. +4 maximum HP.',fx:()=>{E.maxhp(4);G.pack.potion++;E.mood({ysolde:1})},end:true},
+    leave:{t:'Her prayers follow you down the corridor.',fx:()=>E.mood({ysolde:-1,brannoc:-1,nell:-1,ilvar:-1}),end:true}}},
+  diver:{ch:1,min:1,max:4,recruit:true,title:'The salvage diver',nodes:{
+    start:{t:'A man in a brass diving helmet is up to his chest in water, beating an eel swarm off with a crowbar. \u201cDon\u2019t just stand there!\u201d he shouts, muffled. \u201cThere\u2019s a fortune down here and I\u2019m not dying before I find it!\u201d',o:[
+      {l:'Help him fight the eels',go:'fight'},
+      {l:'Throw him a rope',check:['dex',13],ok:'rope',no:'ropeno'},
+      {l:'Wait to see who wins',go:'wait'}]},
+    fight:{t:'You charge into the water.',fx:()=>E.fight(['eels'],'thanks')},
+    rope:{t:'He grabs the rope and you haul him out, eels snapping at his boots.',next:'thanks'},
+    ropeno:{t:'The rope falls short. The eels turn toward you.',fx:()=>E.fight(['eels'],'thanks')},
+    wait:{t:'The eels win. When they are gone, you find his diving bag on the floor. It holds gold.',fx:()=>{E.gold(roll(4,10,20));E.mood({ysolde:-2,nell:-2,brannoc:-2,ilvar:-2,oskar:0,pip:1})},end:true},
+    thanks:{t:'He pulls off the helmet. \u201cOskar Haddeck, salvage and recovery. Look, I know where the abbey treasury is. You get me there alive, we split it. Deal?\u201d',o:[
+      {l:'Shake on it',sub:'Gain a skirmisher',go:'join'},
+      {l:'Ask for his finder\u2019s fee up front',go:'fee'}]},
+    join:{t:'\u201cPartners, then.\u201d He sketches the floor on the wall with chalk.',fx:()=>{E.recruit('oskar',6);E.farSight()},end:true},
+    fee:{t:'He grumbles, but hands over a pouch. \u201cFine. Good luck finding anything without me.\u201d',fx:()=>E.gold(roll(3,10,25)),end:true}}},
+  reliquary:{ch:1,min:2,max:5,title:'Tidebreaker',nodes:{
+    start:{t:'A trident hangs above a flooded altar, held up by nothing. Water spirals around its prongs. An inscription reads: THE SEA GIVES TO THOSE WHO GIVE TO IT.',o:[
+      {l:'Throw 30 gold into the water',if:()=>G.gold>=30,go:'give'},
+      {l:'Give a Healing Draught to the water',if:()=>G.pack.potion>0,go:'potion'},
+      {l:'Just take it',check:['str',15],ok:'grab',no:'grabno'},
+      {l:'Leave it',go:'leave'}]},
+    give:{t:'The coins sink. The trident drifts down into your hands.',fx:()=>{E.gold(-30);E.give('tidebreaker')},end:true},
+    potion:{t:'You pour the draught in. The water glows, and the trident drifts down into your hands.',fx:()=>{G.pack.potion--;E.give('tidebreaker')},end:true},
+    grab:{t:'You wrench it from the spiral. The water thrashes, then goes still. It is yours.',fx:()=>{E.give('tidebreaker');E.mood({nell:-1})},end:true},
+    grabno:{t:'The water hurls you across the room.',fx:()=>E.dmg(3,6,0,'an angry sea'),next:'start'},
+    leave:{t:'You leave the sea its trident.',end:true}}},
+  organ:{ch:1,min:2,max:5,title:'The drowned organ',nodes:{
+    start:{t:'A great organ rises from the water, its keys yellow as old teeth. Sheet music is pinned above it: a hymn, with one bar scratched out. A sealed door stands beside it.',o:[
+      {l:'Play the hymn and guess the missing bar',check:['int',14],ok:'open',no:'wrong'},
+      {l:'Play it from the heart',check:['cha',14],ok:'open',no:'wrong'},
+      {l:'Force the door',check:['str',16],ok:'forced',no:'wrongforce'},
+      {l:'Leave it',go:'leave'}]},
+    open:{t:'The last chord rings through the water. The door grinds open on a small vault.',fx:()=>{const l=[newItem('potion'),newItem('potion'),newItem('fire'),{k:'gold',amt:roll(6,10,40)}];room().items.push(...l);log(`Inside: ${listJoin(l.map(itemName))}.`,'loot')},end:true},
+    forced:{t:'The door gives with a crack. Inside is a vault of gold.',fx:()=>{room().items.push({k:'gold',amt:roll(6,10,40)});E.mood({tessaly:-1})},end:true},
+    wrong:{t:'The wrong note echoes. The water stirs, and drowned things climb out of it.',fx:()=>E.fight(['thrall','thrall'])},
+    wrongforce:{t:'The door holds, and the noise wakes something.',fx:()=>E.fight(['thrall','thrall'])},
+    leave:{t:'You leave the organ to its silence.',end:true}}},
+  confession:{ch:1,min:3,max:6,title:'The confessional',nodes:{
+    start:{t:'A confessional stands in the water, its curtain drawn. A soft voice speaks from inside. \u201cYou have done things down here. Tell me, and be lighter.\u201d',o:[
+      {l:'Confess honestly',check:['wis',12],ok:'honest',no:'honestno'},
+      {l:'Lie',check:['cha',15],ok:'lie',no:'lieno'},
+      {l:'Tear back the curtain',go:'curtain'}]},
+    honest:{t:'You tell the truth. It is harder than any fight. When you step out, your companions look at you differently.',fx:()=>E.mood({'*':1}),end:true},
+    honestno:{t:'You start to talk, and stop. The voice sighs. \u201cAnother time.\u201d',end:true},
+    lie:{t:'The voice laughs softly. \u201cA good liar. Take this, then.\u201d A scroll slides out under the curtain.',fx:()=>{E.item('map');E.mood({nell:-1,ysolde:-1})},end:true},
+    lieno:{t:'\u201cLiar,\u201d says the voice, and the curtain tears open on a siren.',fx:()=>E.fight(['siren'])},
+    curtain:{t:'A siren is crouched inside, grinning.',fx:()=>E.fight(['siren'])}}},
+
+  /* chapter 3: the Ashen Spire */
+  knight:{ch:2,min:1,max:3,recruit:true,title:'Dragon food',nodes:{
+    start:{t:'A knight in dented plate is chained to a post at the edge of a sheer drop, left as a meal for something with wings. Ash cultists stand guard, chanting. The knight looks up. \u201cIf you\u2019re going to help, now would be ideal.\u201d',o:[
+      {l:'Attack the cultists',go:'fight'},
+      {l:'Disguise yourself as a cultist and walk him out',check:['cha',15],ok:'disguise',no:'caught'},
+      {l:'Pick his chains while they chant',check:['dex',15],ok:'chains',no:'caught'},
+      {l:'Leave him to the wyrm',go:'leave'}]},
+    fight:{t:'The cultists break off chanting and draw curved knives.',fx:()=>E.fight(['cultist','cultist'],'thanks')},
+    disguise:{t:'Smeared with ash, you walk up, unchain him, and march him away. No one questions it.',next:'thanks'},
+    chains:{t:'The chains fall away. The knight stands, cracks his neck, and takes a cultist\u2019s sword. \u201cMy turn.\u201d',fx:()=>{E.recruit('ilvar',8);E.fight(['cultist','cultist'],'joined',{surprise:true})}},
+    caught:{t:'A cultist sees you. Knives come out.',fx:()=>E.fight(['cultist','cultist'],'thanks')},
+    thanks:{t:'\u201cIlvar, once of the Order of the Scale. I hunted Vharzhul for twenty years. My order is ash now. I would very much like to finish the job.\u201d',o:[
+      {l:'Welcome him',sub:'Gain a heavy front-liner',go:'join'},
+      {l:'Ask what he knows about the wyrm',sub:'He has something for you',go:'gift'}]},
+    join:{t:'\u201cThen we go up together.\u201d',fx:()=>E.recruit('ilvar',8),end:true},
+    gift:{t:'He unbuckles a long, pale glaive. \u201cCut from a dragon\u2019s tooth. My order made it for this. Use it better than I did.\u201d',fx:()=>E.give('wyrmfang'),end:true},
+    joined:{t:'Ilvar cleans the borrowed sword. \u201cIlvar, of the Order of the Scale. I owe you, and I mean to stay until it\u2019s paid.\u201d',end:true},
+    leave:{t:'You walk on. Behind you, the chanting gets louder.',fx:()=>E.mood({brannoc:-2,ysolde:-1,nell:-1,zeph:-2}),end:true}}},
+  gargoyle:{ch:2,min:2,max:4,recruit:true,title:'The chained gargoyle',nodes:{
+    start:{t:'A gargoyle is chained to the wall by iron through its wings. It is half turned to stone, and it watches you with one moving eye. \u201cThe cultists keep me as a doorstop,\u201d it rumbles. \u201cBreak the chains, and I will break things for you.\u201d',o:[
+      {l:'Break the chains',check:['str',14],ok:'free',no:'freeno'},
+      {l:'Pick the locks',check:['dex',14],ok:'free',no:'freeno'},
+      {l:'Ask what it would give you',go:'bargain'},
+      {l:'Leave it chained',go:'leave'}]},
+    free:{t:'The last chain snaps. The gargoyle stretches stone wings that have not moved in a hundred years.',next:'thanks'},
+    freeno:{t:'The chains hold. The noise brings company.',fx:()=>E.fight(['cultist'],'free2')},
+    free2:{t:'With the cultist dead, you find the key on its belt.',next:'thanks'},
+    bargain:{t:'\u201cI know where they hide their gold. Free me, and it is yours.\u201d',o:[{l:'Free it',check:['str',12],ok:'gold',no:'freeno'},{l:'Leave it chained',go:'leave'}]},
+    gold:{t:'Free, the gargoyle tears open a hidden compartment in the wall. Gold spills out.',fx:()=>{E.gold(roll(6,10,30))},next:'thanks'},
+    thanks:{t:'\u201cZeph. That is my name. I have not said it in a long time.\u201d It flexes its claws. \u201cI go where you go, until I am tired of you.\u201d',o:[{l:'Take Zeph with you',go:'join'},{l:'Tell Zeph to fly free',go:'fly'}]},
+    join:{t:'Zeph falls in behind you, heavy as a landslide.',fx:()=>E.recruit('zeph',7),end:true},
+    fly:{t:'Zeph looks at you for a long moment, then leaps from the window and is gone. A little later, a shower of stolen gold rains down outside.',fx:()=>{E.gold(roll(4,10,20));E.mood({'*':1})},end:true},
+    leave:{t:'Its eye follows you out of the room.',fx:()=>E.mood({brannoc:-1,ysolde:-1,nell:-1}),end:true}}},
+  eggs:{ch:2,min:3,max:5,title:'The clutch',nodes:{
+    start:{t:'In a nest of melted gold lie three eggs, each as big as a barrel and hot as a forge. Something inside one of them is moving.',o:[
+      {l:'Smash the eggs',go:'smash'},
+      {l:'Take the eggs with you',sub:'They are very heavy',check:['str',13],ok:'take',no:'takeno'},
+      {l:'Leave them alone',go:'leave'}]},
+    smash:{t:'It is ugly work. When it is done, you feel the whole spire shudder, as if something far above has felt it too.',fx:()=>{E.flag('eggs_smashed');E.mood({zeph:-2,nell:-1,gruk:1,ilvar:1})},end:true},
+    take:{t:'You wrap the eggs in cloaks and carry them between you. They are warm, and they hum. Perhaps they will be worth something to someone.',fx:()=>{E.flag('eggs_taken');E.mood({oskar:2,pip:2})},end:true},
+    takeno:{t:'One egg slips and cracks. Something small and furious crawls out.',fx:()=>E.fight(['salamander'])},
+    leave:{t:'You leave the eggs to their warmth.',fx:()=>E.mood({zeph:1,nell:1}),end:true}}},
+  dawn:{ch:2,min:2,max:5,title:'Dawnlance',nodes:{
+    start:{t:'A shaft of light falls through a crack in the spire onto a burned shrine. In the light lies a lance, untouched by the ash around it. The light is fading as the sun moves.',o:[
+      {l:'Kneel and pray before taking it',check:['wis',13],ok:'got',no:'late'},
+      {l:'Grab it before the light goes',check:['dex',14],ok:'got',no:'late'},
+      {l:'Leave it in the light',go:'leave'}]},
+    got:{t:'The lance is warm in your hands. It glows faintly, like dawn.',fx:()=>E.give('dawnlance'),end:true},
+    late:{t:'The light slides away, and the lance crumbles to ash as the shadow covers it.',end:true},
+    leave:{t:'You leave it shining.',end:true}}},
+  defector:{ch:2,min:1,max:5,title:'The defector',nodes:{
+    start:{t:'An ash cultist stands with both hands raised. \u201cDon\u2019t! I want out. I know a secret way up, past the guards. Just let me live.\u201d',o:[
+      {l:'Let him show you',check:['wis',13],ok:'true',no:'trap'},
+      {l:'Make him swear on his life first',check:['cha',12],ok:'true',no:'trap'},
+      {l:'Kill him',go:'kill'},
+      {l:'Let him go',go:'go'}]},
+    true:{t:'He leads you through a crawlway and sketches the floor on the wall. Then he runs.',fx:()=>{E.farSight();E.mood({nell:1,ysolde:1})},end:true},
+    trap:{t:'He leads you into an ambush and vanishes.',fx:()=>E.fight(['cultist','gargoyle'])},
+    kill:{t:'He doesn\u2019t fight back.',fx:()=>{E.gold(roll(2,10,10));E.mood({ysolde:-2,nell:-2,brannoc:-1,ilvar:-1})},end:true},
+    go:{t:'He runs for the stairs without looking back.',fx:()=>E.mood({nell:1,ysolde:1}),end:true}}},
+
+  /* party management */
+  swap:{special:true,repeat:true,title:'A full party',nodes:{
+    start:{t:ev=>`${COMPS[ev.newId].name} is ready to join you, but there is only room for three companions. Someone would have to go.`,o:[
+      {l:ev=>comps()[0]?`Part ways with ${comps()[0].name} to make room`:'',if:()=>!!comps()[0],sub:()=>comps()[0]?`${LOYAL_WORD(comps()[0].loyalty)} · takes their ${wname(comps()[0].weapon)}`:'',go:'s0'},
+      {l:ev=>comps()[1]?`Part ways with ${comps()[1].name} to make room`:'',if:()=>!!comps()[1],sub:()=>comps()[1]?`${LOYAL_WORD(comps()[1].loyalty)} · takes their ${wname(comps()[1].weapon)}`:'',go:'s1'},
+      {l:ev=>comps()[2]?`Part ways with ${comps()[2].name} to make room`:'',if:()=>!!comps()[2],sub:()=>comps()[2]?`${LOYAL_WORD(comps()[2].loyalty)} · takes their ${wname(comps()[2].weapon)}`:'',go:'s2'},
+      {l:ev=>`Turn ${COMPS[ev.newId].name} away`,sub:'They wish you luck',go:'no'}]},
+    s0:{fx:ev=>swapOut(0,ev)},s1:{fx:ev=>swapOut(1,ev)},s2:{fx:ev=>swapOut(2,ev)},
+    no:{t:ev=>`${COMPS[ev.newId].name} nods. \u201cAnother time, then.\u201d They press a Healing Draught into your hand.`,fx:()=>{G.pack.potion++},end:true}}},
+  dismiss:{special:true,repeat:true,title:'Parting ways',nodes:{
+    start:{t:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`You take ${c.name} aside. ${c.loyalty>=6?'They can tell what is coming, and they look hurt.':c.loyalty>=3?'They wait to hear what you have to say.':'They look almost relieved.'}`:''},o:[
+      {l:ev=>`Part ways with ${COMPS[ev.who].name}`,sub:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`They keep their ${wname(c.weapon)}`:''},go:'go'},
+      {l:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`Part ways, and ask for the ${wname(c.weapon)} back`:''},if:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&c.weapon.id!==COMPS[c.id].weapon},check:['cha',13],ok:'goweapon',no:'goangry'},
+      {l:'Change your mind',go:'stay'}]},
+    go:{t:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&c.loyalty>=6?`${c.name} clasps your arm. \u201cIt was good, walking with you. Look after yourself.\u201d They leave you a Healing Draught.`:`${COMPS[ev.who].name} shrugs, shoulders their pack, and walks away.`},fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c&&c.loyalty>=6)G.pack.potion++;leaveParty(ev.who);E.mood({'*':-1},true)},end:true},
+    goweapon:{t:ev=>`${COMPS[ev.who].name} hands it over without a word, and goes.`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c){G.pack.weapons.push(c.weapon);c.weapon={id:COMPS[c.id].weapon,plus:0}}leaveParty(ev.who)},end:true},
+    goangry:{t:ev=>`\u201cYou gave it to me,\u201d ${COMPS[ev.who].name} says coldly, and walks off with it.`,fx:ev=>{leaveParty(ev.who);E.mood({'*':-1})},end:true},
+    stay:{t:ev=>`${COMPS[ev.who].name} looks at you oddly, but says nothing.`,fx:ev=>E.mood({[ev.who]:-1}),end:true}}},
+  tavern:{special:true,repeat:true,title:'The Lantern and Key',nodes:{
+    start:{t:'The innkeeper sets down bowls of stew without being asked. Your party eats like wolves. Everyone is healed and rested.',o:[
+      {l:'Visit the market',sub:'Draughts and scrolls',go:'market'},
+      {l:'Look for new companions',if:()=>comps().length<MAX_COMPANIONS,sub:ev=>`${comps().length} of ${MAX_COMPANIONS} places filled`,go:'hire'},
+      {l:'Part ways with a companion',if:()=>comps().length>0,go:'part'},
+      {l:'Sort out your gear',if:()=>G.pack.weapons.length>0,sub:'Equip weapons and hand them out',go:'gear'},
+      {l:()=>`Set out for ${chap().name}`,sub:()=>chap().stairs==='up'?'A long road north to the spire':'A cold road to the lake at Mirelight',go:'leave'}]},
+    market:{t:'The market stalls are open late for heroes.',o:[
+      {l:'Buy a Healing Draught',sub:'20 gold',if:()=>G.gold>=20,go:'buyp'},
+      {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'buyf'},
+      {l:'Buy a Scroll of Far Sight',sub:'25 gold',if:()=>G.gold>=25,go:'buym'},
+      {l:'Back to the tavern',go:'start'}]},
+    buyp:{fx:()=>{E.gold(-20);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'market'},
+    buyf:{fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'market'},
+    buym:{fx:()=>{E.gold(-25);G.pack.map++;log('You buy a Scroll of Far Sight.','loot')},next:'market'},
+    hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},o:[
+      {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${COMPS[ev.offers[0]].title}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${COMPS[ev.offers[0]].cls} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
+      {l:ev=>ev.offers&&ev.offers[1]?`Hire ${COMPS[ev.offers[1]].name}, ${COMPS[ev.offers[1]].title}`:'',if:ev=>ev.offers&&ev.offers[1]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[1]?`${COMPS[ev.offers[1]].cls} · values ${VALUES[ev.offers[1]]} · 25 gold`:'',go:'h1'},
+      {l:ev=>ev.offers&&ev.offers[2]?`Hire ${COMPS[ev.offers[2]].name}, ${COMPS[ev.offers[2]].title}`:'',if:ev=>ev.offers&&ev.offers[2]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[2]?`${COMPS[ev.offers[2]].cls} · values ${VALUES[ev.offers[2]]} · 25 gold`:'',go:'h2'},
+      {l:'Back to the tavern',go:'start'}]},
+    h0:{fx:ev=>hireAt(0,ev),next:'start'},h1:{fx:ev=>hireAt(1,ev),next:'start'},h2:{fx:ev=>hireAt(2,ev),next:'start'},
+    part:{t:'Who will you leave behind in Ashmoor?',o:[
+      {l:()=>comps()[0]?`Part ways with ${comps()[0].name}`:'',if:()=>!!comps()[0],go:'p0'},
+      {l:()=>comps()[1]?`Part ways with ${comps()[1].name}`:'',if:()=>!!comps()[1],go:'p1'},
+      {l:()=>comps()[2]?`Part ways with ${comps()[2].name}`:'',if:()=>!!comps()[2],go:'p2'},
+      {l:'Back to the tavern',go:'start'}]},
+    p0:{fx:()=>partAt(0),next:'start'},p1:{fx:()=>partAt(1),next:'start'},p2:{fx:()=>partAt(2),next:'start'},
+    gear:{t:'You spread your gear out on a table.',fx:()=>{G.menu='gear'},end:true},
+    leave:{t:'You settle the bill, shoulder your packs, and set out.',fx:()=>{G.depth=1;genFloor();markSeen();describe(room(),`${G.theme} · Floor 1`)},end:true}}},
+  parley:{special:true,repeat:true,title:'The wyrm\u2019s children',nodes:{
+    start:{t:'Vharzhul\u2019s eyes open, and then narrow. The wyrm has smelled the eggs you carry. \u201cMy children,\u201d it says, and for the first time in a thousand years its voice shakes. \u201cGive them to me.\u201d',o:[
+      {l:'Trade the eggs for the Sky Crown',check:['cha',14],ok:'deal',no:'nodeal'},
+      {l:'Give back the eggs and ask for nothing',go:'gift'},
+      {l:'Threaten to smash them',check:['str',16],ok:'threat',no:'nodeal'},
+      {l:'Fight',go:'fight'}]},
+    deal:{t:'A long silence. Then the wyrm bows its great head, and the Sky Crown slides from its horn. \u201cTake it, and never come back.\u201d',fx:()=>{room().mons=[];room().items.push({k:'skycrown',amt:1});E.mood({zeph:2,nell:1})},end:true},
+    gift:{t:'You set the eggs down. The wyrm curls around them, and then, slowly, lowers its horn to you. The Sky Crown slides into your hands. \u201cYou are a strange thief.\u201d',fx:()=>{room().mons=[];room().items.push({k:'skycrown',amt:1});E.mood({'*':2})},end:true},
+    threat:{t:'You raise your weapon over an egg. The wyrm goes very still, and lets the crown fall.',fx:()=>{room().mons=[];room().items.push({k:'skycrown',amt:1});E.mood({zeph:-3,nell:-2,ysolde:-2,gruk:1})},end:true},
+    nodeal:{t:'\u201cThen I will take them from your ashes.\u201d',next:'fight'},
+    fight:{t:'The wyrm rises.',fx:()=>{room().mons.forEach(m=>m.aware=true);G.fighting=true;G.ev.waiting=true;G.ev.after=null;log('Every third round, the wyrm breathes fire over the whole party. A Dexterity save halves it.','threat')}}}},
+  finale:{special:true,repeat:true,title:'Three crowns',nodes:{
+    start:{t:'The Ember Crown, the Tide Crown and the Sky Crown lie together on the roost\u2019s floor. Fire, water and air. Together they could rule the world, or end it. They are waiting for you to choose.',o:[
+      {l:'Wear all three crowns',sub:'Power, at a price',go:'wear'},
+      {l:'Break them on the Ember Forge',sub:'End their power forever',go:'break'},
+      {l:ev=>{const c=mostLoyal();return c?`Give them to ${c.name}`:''},if:()=>!!mostLoyal(),sub:()=>{const c=mostLoyal();return c?`${LOYAL_WORD(c.loyalty)} · values ${VALUES[c.id]}`:''},go:'give'},
+      {l:'Hide them where no one will ever find them',go:'hide'}]},
+    wear:{t:()=>`You lift the crowns, one by one, onto your head. The fire fills you, then the cold, then the wind. You see every kingdom, every throne, every frightened face. ${comps().length?listJoin(comps().map(m=>m.name))+' step'+(comps().length>1?'':'s')+' back from you. ':''}In time they will call you the Crowned, and in time they will build a dungeon to keep you in. But not yet. Not for a long time yet.`,fx:()=>ending('crowned'),end:true},
+    break:{t:()=>`You carry the three crowns back south, to the Ember Forge, and lay them on the anvil. ${comps().length?listJoin(comps().map(m=>m.name))+' stand'+(comps().length>1?'':'s')+' with you. ':''}It takes a full day of hammering. When the last one shatters, the fires of the Emberdeep go out, the lake at Mirelight goes clear, and the spire falls quiet. The bards will sing about it badly, and often.`,fx:()=>ending('broken'),end:true},
+    give:{t:()=>{const c=mostLoyal();return `You hold out the crowns to ${c.name}. ${({honour:'They kneel, and swear to wear them only to protect.',mercy:'They weep, and promise to use them to heal.',faith:'They pray over them for a night and a day before they will touch them.',gold:'Their eyes go very wide.',nerve:'They laugh, and set them on their head like a hat.',cleverness:'They examine them for a long time, smiling.',pay:'They look at you as if you were mad, and then they take them.',strength:'They lift them high and roar.',freedom:'They take them, and fly away, and are never seen again.'})[VALUES[c.id]]} What ${c.name} does with them is another story.`},fx:()=>ending('given'),end:true},
+    hide:{t:()=>`You take the crowns to a place only you know, and leave them in the dark. ${comps().length?'You make your companions swear never to speak of it. ':''}Perhaps one day someone will find them. That will be their adventure, not yours.`,fx:()=>ending('hidden'),end:true}}},
+});
+function mostLoyal(){return comps().filter(c=>c.loyalty>0).sort((a,b)=>b.loyalty-a.loyalty)[0]}
+function swapOut(i,ev){const c=comps()[i];if(!c)return;log(`You tell ${c.name} that this is where you part ways. ${c.loyalty>=6?'They take it hard, but they go.':'They shrug and go.'}`,'event');leaveParty(c.id);E.mood({'*':-1},true);recruit(ev.newId,ev.loyalty);endEvent()}
+function hireAt(i,ev){const id=ev.offers[i];if(!id)return;if(G.gold<25){log('You can\u2019t afford to hire anyone right now. It costs 25 gold.','sys');return}E.gold(-25);recruit(id,5);ev.offers.splice(i,1)}
+function partAt(i){const c=comps()[i];if(!c)return;log(`You buy ${c.name} a last drink, and part ways in Ashmoor.${c.loyalty>=6?' They leave you a Healing Draught.':''}`,'event');if(c.loyalty>=6)G.pack.potion++;leaveParty(c.id)}
+function ending(kind){
+  G.over={win:true,ending:kind};
+  const title={crowned:'The Crowned',broken:'The Crownbreaker',given:'The Kingmaker',hidden:'The Keeper of Secrets'}[kind];
+  log(`The end. ${H().name} the ${CLASSES[H().cls].name.toLowerCase()} will be remembered as ${title}.`,'crit');
+  endStats();
+}
+const payoff=()=>20+G.depth*10;
+function leaveParty(id){const c=G.party.find(m=>m.id===id);if(!c)return;G.party=G.party.filter(m=>m!==c);G.flags['left_party_'+id]=true}
+function processQueue(){
+  if(!G||G.over||G.ev||!G.evQueue||!G.evQueue.length)return;
+  if(room().mons.some(m=>m.aware))return;
+  const q=G.evQueue.shift();
+  if(q.who&&!G.party.some(m=>m.id===q.who))return processQueue();
+  log(EVENTS[q.id].title,'big');
+  startEvent(q.id,q);
+}
+function owns(id){return G.pack.weapons.some(w=>w.id===id)||G.party.some(m=>m.weapon.id===id)}
+function evNode(){return G.ev&&EVENTS[G.ev.id].nodes[G.ev.node]}
+const txt=(v,ev)=>typeof v==='function'?v(ev):v;
+function startEvent(id,data={}){
+  G.ev={id,room:G.cur,node:'start',waiting:false,after:null,...data};
+  if(!EVENTS[id].repeat&&!G.done.includes(id))G.done.push(id);
+  const def=EVENTS[id];if(def.init)def.init(G.ev);
+  evGo('start');
+}
+function evGo(id){
+  const ev=G.ev,node=EVENTS[ev.id].nodes[id];ev.node=id;
+  if(node.t)log(txt(node.t,ev),'event');
+  if(node.fx){const extra=node.fx(ev);if(typeof extra==='string'&&extra)log(extra,'event')}
+  if(G.over||!G.ev)return;
+  if(ev.waiting)return;
+  if(node.next)return evGo(node.next);
+  if(node.end||!node.o)endEvent();
+}
+function endEvent(){if(!G.ev)return;const r=G.rooms[G.ev.room];if(r&&r.event===G.ev.id)r.event=null;G.ev=null}
+
+/* ---------- floor generation ---------- */
+function pickEvents(){
+  const d=G.depth;
+  const avail=Object.entries(EVENTS).filter(([id,e])=>!e.special&&(e.ch==='any'||(e.ch||0)===(G.chapter||0))&&!G.done.includes(id)&&d>=e.min&&d<=e.max&&(!e.need||e.need())&&!(e.recruit&&G.party.some(m=>m.id===recruitId(id))));
+  const must=avail.filter(([,e])=>e.must&&e.must()).map(x=>x[0]);
+  const rec=shuffle(avail.filter(([id,e])=>e.recruit&&!must.includes(id))).map(x=>x[0]);
+  const other=shuffle(avail.filter(([id,e])=>!e.recruit&&!must.includes(id))).map(x=>x[0]);
+  const out=[...must];
+  if(comps().length<MAX_COMPANIONS&&rec.length&&(d===1||Math.random()<.8))out.push(rec.shift());
+  if(d<=2&&rec.length&&Math.random()<.5)out.push(rec.shift());
+  const target=Math.max(out.length,2+(d>=3?1:0));
+  while(out.length<target&&(other.length||rec.length))out.push(other.length?other.shift():rec.shift());
+  return out;
+}
+function recruitId(evId){return{novice:'nell',diver:'oskar',knight:'ilvar',gargoyle:'zeph',smith:'brannoc',priest:'ysolde',kobold:'pip',ranger:'maren',witch:'tessaly',sellsword:'corvin'}[evId]}
+function genFloor(){
+  const d=G.depth,N=Math.min(13,7+Math.ceil((d+(G.chapter||0)*3)/2)),rooms={},list=[];
+  const mk=(x,y)=>{const r={x,y,exits:{},mons:[],items:[],feature:null,hidden:null,visited:false,seen:false,searched:false,stairs:false,throne:false,event:null,name:'',desc:[]};rooms[key(x,y)]=r;list.push(r);return r};
+  const link=(a,b,dk)=>{a.exits[dk]=key(b.x,b.y);b.exits[OPP[dk]]=key(a.x,a.y)};
+  const start=mk(2,2);let guard=0;
+  while(list.length<N&&guard++<3000){const r=pick(list),dk=pick(['n','e','s','w']),[dx,dy]=DIRV[dk],nx=r.x+dx,ny=r.y+dy;if(nx<0||ny<0||nx>=GRID||ny>=GRID||rooms[key(nx,ny)])continue;link(r,mk(nx,ny),dk)}
+  for(let i=0;i<2;i++){const r=pick(list),dk=pick(['n','e','s','w']),[dx,dy]=DIRV[dk],o=rooms[key(r.x+dx,r.y+dy)];if(o&&!r.exits[dk])link(r,o,dk)}
+  const dist={[key(2,2)]:0},q=[start];let far=start;
+  while(q.length){const r=q.shift();for(const k of Object.values(r.exits)){if(dist[k]==null){dist[k]=dist[key(r.x,r.y)]+1;q.push(rooms[k]);if(dist[k]>dist[key(far.x,far.y)])far=rooms[k]}}}
+  const th=themeFor(d);
+  // deal room names and description lines from per-theme decks so nothing repeats until the deck runs out
+  G.decks=G.decks||{};
+  const draw=(kind,arr)=>{const k=th.name+':'+kind;let dk=G.decks[k];if(!dk||!dk.length)dk=G.decks[k]=shuffle(arr.map((_,i)=>i));return arr[dk.pop()]};
+  list.forEach(r=>{r.name=draw('rooms',th.rooms);const a=draw('bits',th.bits);let b=draw('bits',th.bits);if(b===a)b=draw('bits',th.bits);r.desc=Math.random()<.5?[a]:[a,b]});
+  G.rooms=rooms;
+  if(d<FLOORS())far.stairs=true;else{far.throne=true;far.name=chap().throne.name;far.desc=[chap().throne.desc]}
+  const table=monTable(),nComp=comps().length;
+  for(const r of list){
+    if(r===start)continue;
+    if(r.throne){const b=makeMon(chap().boss);b.maxhp+=nComp*(10+(G.chapter||0)*5);b.hp=b.maxhp;r.mons.push(b);for(let i=0;i<1+Math.ceil(nComp/2);i++)r.mons.push(makeMon(MONK[pick(chap().escort)]));retag(r);continue}
+    if(Math.random()<.58+nComp*.06){let n=1+((d>=3&&Math.random()<.35)?1:0);for(let i=0;i<nComp;i++)if(Math.random()<.55)n++;n=Math.min(n,1+nComp+(d>=4?1:0));const t=pick(table);for(let i=0;i<n;i++)r.mons.push(makeMon(Math.random()<.7?t:pick(table)));retag(r)}
+    if(Math.random()<.28)r.items.push(newItem(pickItemKey()));
+    if(Math.random()<.25){const k=pick(Object.keys(FEATURES));r.feature={k,used:false,trap:k==='chest'&&Math.random()<.4,checked:false}}
+    if(Math.random()<.3)r.hidden=newItem(pickItemKey());
+  }
+  // place events in quiet rooms
+  const evIds=pickEvents();
+  const spots=shuffle(list.filter(r=>r!==start&&!r.stairs&&!r.throne));
+  evIds.forEach((id,i)=>{const r=spots[i];if(!r)return;r.event=id;r.mons=[];r.feature=null});
+  if(Math.random()<.5)start.items.push(newItem('potion'));
+  G.cur=key(2,2);G.prev=null;G.restUsed=false;G.farSight=false;G.ev=null;G.bless=false;G.fighting=false;
+  const h=H();h.charges=maxCharges();h.ward=h.cls==='wizard';h.temp=0;h.rage=0;
+  for(const c of comps())c.heals=2+(G.lvl>=5?1:0);
+  G.theme=th.name;
+}
+
+/* ---------- describing ---------- */
+function exitWords(r){return ['n','e','s','w'].filter(k=>r.exits[k]).map(k=>DIRV[k][2])}
+function describe(r,eyebrow=''){
+  const paras=[];let body=r.desc.join(' ');
+  if(r.stairs)body+=chap().stairs==='up'?' A stair spirals up into smoke and darkness.':' In the corner, a spiral stair winds down into the dark.';
+  if(r.feature)body+=' '+(r.feature.used?({chest:'An empty chest stands open.',fountain:'A stone fountain trickles quietly.',altar:'A small altar holds a guttering candle.',bones:'A picked-over skeleton lies in the corner.'})[r.feature.k]:FEATURES[r.feature.k]);
+  paras.push(body);
+  if(r.mons.length&&!(r.event&&!G.ev)){
+    if(r.mons.some(m=>m.aware))paras.push(listJoin(r.mons.map(m=>`${cap(theM(m))} (${hpWord(m)})`))+(r.mons.length>1?' are':' is')+' here, ready to fight.');
+    else{const seenK={};paras.push(r.mons.map(m=>{if(seenK[m.k])return `Another ${m.name} is with it.`;seenK[m.k]=1;return m.traitor?`${m.name} stands against you.`:MONK[m.k]?.intro||''}).join(' '))}
+  }
+  if(r.items.length)paras.push(`On the floor you see ${listJoin(r.items.map(itemName))}.`);
+  const ex=exitWords(r);paras.push(ex.length===1?`The only way out is ${ex[0]}.`:`Passages lead ${listJoin(ex)}.`);
+  scene(cap(r.name),eyebrow,paras);
+}
+function markSeen(){const r=room();r.visited=true;r.seen=true;for(const nk of Object.values(r.exits))G.rooms[nk].seen=true}
+
+/* ---------- movement ---------- */
+function enterRoom(k){
+  G.prev=G.cur;G.cur=k;const r=room();markSeen();
+  describe(r);
+  if(r.event&&!G.ev&&!r.mons.length){startEvent(r.event);return}
+  if(!r.mons.length)return;
+  if(r.mons.some(m=>m.aware)){G.fighting=true;log(`They have not forgotten you.`,'threat');if(G.ev&&G.ev.room!==k)G.ev=null;return}
+  if(r.throne&&(G.chapter||0)===2&&E.has('eggs_taken')&&!E.has('parley_done')&&r.mons.some(m=>m.boss)){G.flags.parley_done=true;startEvent('parley');return}
+  if(r.throne&&(G.chapter||0)===1){
+    r.mons.forEach(m=>m.aware=true);G.fighting=true;
+    log(`The Drowned Abbess turns her head, and the choir turns with her. \u201cYou came all this way to hear us sing,\u201d she says. \u201cStay. Stay forever.\u201d`,'big');
+    log('While her sirens sing, the song shields her: she takes only half damage. Silence the choir first.','threat');
+    return;
+  }
+  if(r.throne&&(G.chapter||0)===2){
+    r.mons.forEach(m=>m.aware=true);G.fighting=true;
+    log(`One great eye opens, then the other. Vharzhul uncoils, and the roost shakes. \u201cThieves,\u201d says the wyrm, and the word is a wave of heat. \u201cI have burned better.\u201d`,'big');
+    log('Every third round, the wyrm breathes fire over the whole party. A Dexterity save halves it.','threat');
+    return;
+  }
+  if(r.throne){
+    r.mons.forEach(m=>m.aware=true);G.fighting=true;
+    log(`The Hollow King rises. Two embers burn where his eyes should be. “Another one,” he says, in a voice like a closing tomb, and draws a black sword.`,'big');
+    log(E.has('kingsbane')?'Kingsbane hums in its scabbard. It knows him.':'As you watch, an old wound in his side closes by itself. Fire, the old king wrote. Fire stops him mending.','threat');
+    return;
+  }
+  const h=H(),rl=roll(1,20),loud=h.cls==='ranger'?0:comps().filter(c=>!['skirmisher','archer'].includes(c.role)).length;
+  const b=h.stats.dex+(isRogue()?3:0)-loud,dc=11+Math.floor(G.depth/2),tot=rl+b;
+  const det=`Stealth d20 ${rl}${sgn(b)}${loud?` (party noise −${loud})`:''} = ${tot} vs DC ${dc}`;
+  if(rl!==1&&tot>=dc){log(`You move quietly. ${r.mons.length>1?'They have':'It has'} not noticed you.`,'magic',det);return}
+  r.mons.forEach(m=>m.aware=true);G.fighting=true;
+  log(`${cap(theM(r.mons[0]))} spots you!`,'threat',det);
+  const ip=roll(1,20,h.stats.dex),mr=roll(1,20,2);
+  if(ip>=mr)log(`You are quicker. Your party acts first.`,'sys',`Initiative ${ip} vs ${mr}`);
+  else{log(`They are on you before you can react.`,'hurt',`Initiative ${ip} vs ${mr}`);monstersAct()}
+}
+function move(dk){const k=room().exits[dk];if(k)enterRoom(k)}
+function descend(){
+  G.depth++;genFloor();
+  log(chap().stairs==='up'?`You lead the party up the winding stair. The wind grows hotter and the air thinner.`:(G.chapter||0)===1?`You lead the party down the stairs into colder, deeper water.`:`You lead the party down the stairs. The air grows ${G.depth>=7?'hot and dry':G.depth>=5?'still and dry':'colder and wetter'}.`,'sys');
+  if(G.depth===FLOORS())log(chap().lastFloor,'big');
+  markSeen();describe(room(),`${G.theme} · Floor ${G.depth}`);
+  G.evQueue=G.evQueue||[];
+  if(G.party.some(m=>m.id==='corvin'))G.evQueue.push({id:'wages',who:'corvin'});
+  const pip=G.party.find(m=>m.id==='pip');if(pip&&pip.loyalty<7&&Math.random()<.6)G.evQueue.push({id:'share',who:'pip'});
+  for(const c of comps())if(c.loyalty>=8&&Math.random()<.2)log(`${c.name} claps you on the shoulder at the bottom of the stairs.`,'ally');
+}
+function wander(chance){
+  if(Math.random()>=chance)return false;
+  const r=room(),n=1+Math.floor(comps().length/2)+(comps().length&&Math.random()<.5?1:0),t=pick(monTable()),ms=[];
+  for(let i=0;i<n;i++){const m=makeMon(Math.random()<.7?t:pick(monTable()));m.aware=true;r.mons.push(m);ms.push(m)}retag(r);G.fighting=true;
+  log(n===1?`Footsteps. ${cap(theM(ms[0]))} wanders in from the passage and sees you!`:`Footsteps, lots of them. ${cap(listJoin(ms.map(theM)))} pour in from the passage!`,'threat');
+  return true;
+}
+
+/* ---------- combat ---------- */
+function d20(adv){const a=roll(1,20);if(!adv)return{r:a,t:`d20 ${a}`};const b=roll(1,20);return{r:Math.max(a,b),t:`d20 (${a}, ${b})`}}
+function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,blast=false}={}){
+  const r=room(),surprise=!tgt.aware;adv=adv||surprise;
+  const w=torch?{n:1,d:4,bonus:0,stat:'dex'}:blast?{n:1,d:10,bonus:0}:wdef(att.weapon),sm=torch?att.stats.dex:blast?att.stats.cha:statMod(att,att.weapon);
+  const th=prof()+sm+w.bonus+(G.bless?1:0);
+  const {r:rl,t}=d20(adv),tot=rl+th,critOn=w.crit||(att.hero&&isRogue()?19:20),crit=rl>=critOn;
+  r.mons.forEach(o=>o.aware=true);G.fighting=true;
+  const det=`${t}${sgn(th)}=${tot} vs AC ${tgt.ac}${adv?' · advantage':''}`;
+  const wn=torch?'torch':blast?'Eldritch Blast':wname(att.weapon);
+  if(rl===1||(!crit&&tot<tgt.ac)){log(blast?`Your Eldritch Blast crackles past ${theM(tgt)}.`:`${who(att,'swing','swings')} ${torch?'the torch':`${att.hero?'your':'their'} ${wn}`} at ${theM(tgt)} and ${att.hero?'miss':'misses'}.`,'miss',det);return}
+  const mult=crit?2:1;let dmg=roll(w.n*mult,w.d,sm+w.bonus);const ex=[dstr(w.n*mult,w.d,sm+w.bonus)];
+  if(w.extra){dmg+=roll(w.extra[0]*mult,w.extra[1]);ex.push(`${w.extra[0]*mult}d${w.extra[1]} ${w.extra[2]}`);if(w.extra[2]==='fire')tgt.scorched=true}
+  if(w.slayer&&DRAGONKIN.has(tgt.k)){dmg+=roll(w.slayer[0]*mult,w.slayer[1]);ex.push(`${w.slayer[0]*mult}d${w.slayer[1]} dragon-slaying`)}
+  if(w.undead&&UNDEAD.has(tgt.k)){dmg+=roll(w.undead[0]*mult,w.undead[1]);ex.push(`${w.undead[0]*mult}d${w.undead[1]} vs undead`)}
+  let storm=false;if(w.storm&&Math.random()<1/3){dmg+=roll(2*mult,8);ex.push(`${2*mult}d8 lightning`);storm=true}
+  if(w.king&&tgt.boss){tgt.scorched=true}
+  if(torch){tgt.scorched=true}
+  if(sneak){dmg+=roll(sneak*mult,6);ex.push(`${sneak*mult}d6 sneak`)}
+  if(mark){dmg+=roll(1,6);ex.push('1d6 mark')}
+  if(att.hero&&att.rage>0&&!blast){dmg+=2;ex.push('+2 rage')}
+  if(tgt.hexed){dmg+=roll(1,6);ex.push('1d6 hex')}
+  if(smite){const sd=(2+(UNDEAD.has(tgt.k)?1:0))*mult;dmg+=roll(sd,8);ex.push(`${sd}d8 radiant smite`);tgt.scorched=true}
+  dmg=Math.max(1,dmg);
+  const how=crit?'Critical hit! ':'';
+  const verb=blast?`A beam of crackling force from your hand strikes ${theM(tgt)}`:smite?`Your ${wn} blazes with holy light as it strikes ${theM(tgt)}`:torch?`${who(att,'shove','shoves')} the torch into ${theM(tgt)}’s face`:surprise?`${who(att,'catch','catches')} ${theM(tgt)} off guard with ${att.hero?'your':'a'} ${wn}`:`${who(att,'hit','hits')} ${theM(tgt)} with ${att.hero?'your':'a'} ${wn}`;
+  log(`${how}${verb} for ${dmg} damage.${storm?' Lightning cracks down the shaft!':''}${torch?' His flesh sizzles.':''}`,crit?'crit':att.hero?'hit':'ally',`${det} · ${ex.join(' + ')}`);
+  if(w.leech){const h=Math.min(Math.floor(dmg/3),att.maxhp-att.hp);if(h>0){att.hp+=h;log(`The Thirsting Blade drinks. ${att.hero?'You heal':att.name+' heals'} ${h}.`,'heal')}}
+  hurt(tgt,dmg);
+}
+function hurt(m,dmg){if(m.k==='abbess'&&room().mons.some(o=>o.k==='siren')){dmg=Math.max(1,Math.floor(dmg/2));if(!m._shieldMsg){m._shieldMsg=1;log('The sirens\u2019 song shields the Abbess. Only half the damage lands.','magic')}}
+  m.hp-=dmg;m.aware=true;if(m.hp<=0)kill(m)}
+function kill(m){
+  const r=room();if(!r.mons.includes(m))return;r.mons=r.mons.filter(o=>o!==m);if(!m.traitor)G.kills++;
+  if(m.boss){
+    const t={king:'The Hollow King staggers, drops to one knee, and comes apart into ash and old iron. The Ember Crown rolls across the floor and stops at your feet.',
+      abbess:'The Drowned Abbess sinks slowly to the floor of her reef. The choir falls silent, all at once, for the first time in two hundred years. The Tide Crown drifts down into the sand.',
+      wyrm:'Vharzhul rears up, roars one last gout of flame at the sky, and crashes down across his hoard. Gold slides and rings for a long time. The Sky Crown slips from his horn and rolls to your feet.'}[m.k];
+    log(t,'big');r.items.push({k:chap().prize,amt:1});return}
+  if(m.traitor){log(`${m.name} falls, and does not get up. You take back the ${wname(m.weapon)}.`,'hurt',`+${m.xp} XP`);G.pack.weapons.push(m.weapon);G.flags['dead_'+m.id]=true;gainXP(m.xp);return}
+  log(`${cap(theM(m))} ${m.k==='skeleton'?'collapses into a pile of bones':m.k==='ooze'?'spreads into a harmless puddle':m.k==='wraith'?'fades with a long sigh':'falls and does not get up'}.`,'text',`+${m.xp} XP`);
+  if(Math.random()<.35)r.items.push({k:'gold',amt:roll(1,8,G.depth*2)});
+  gainXP(m.xp);
+}
+function gainXP(n){
+  G.xp+=n;
+  while(G.lvl<XPT.length&&G.xp>=XPT[G.lvl]){
+    G.lvl++;const h=H(),c=CLASSES[h.cls];
+    const main=c.main;
+    if(G.lvl===3||G.lvl===6||G.lvl===9)h.stats[main]++;
+    for(const m of G.party){const before=m.maxhp;m.maxhp=calcMax(m);if(!m.down)m.hp+=m.maxhp-before}
+    if(G.lvl===4||G.lvl===7)h.charges++;
+    log(`The party reaches level ${G.lvl}. Everyone grows tougher.${G.lvl===3||G.lvl===6||G.lvl===9?` Your ${main.toUpperCase()} rises.`:''}${G.lvl===4||G.lvl===7?` ${c.abil.name} gains a use.`:''}`,'big');
+  }
+}
+function pickTarget(){
+  const alive=living();let tot=0;const w=alive.map(m=>{const x=m.hero?2:m.role==='tank'?3:1;tot+=x;return x});
+  let r=Math.random()*tot;for(let i=0;i<alive.length;i++){if((r-=w[i])<0)return alive[i]}return alive[0];
+}
+function monAttack(m){
+  const t=pickTarget();if(!t)return;
+  const rl=roll(1,20),tot=rl+m.hit-(t.hero&&t.cls==='monk'?2:0),A=ac(t),crit=rl===20,det=`d20 ${rl}${sgn(m.hit)}=${tot} vs AC ${A}`;
+  const tn=t.hero?'you':t.name;
+  if(rl===1||(!crit&&tot<A)){log(`${cap(theM(m))} attacks ${tn}, but ${t.hero?'you turn':'they turn'} the blow aside.`,'miss',det);return}
+  if(t.hero&&t.ward){t.ward=false;log(`${cap(theM(m))} strikes, and your arcane ward flares and absorbs the blow.`,'magic',det);return}
+  const [n,d,b]=m.dmg;let dmg=Math.max(1,roll(crit?n*2:n,d,b));
+  if(t.hero&&t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
+  if(t.hero&&t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`Your bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
+  t.hp-=dmg;
+  log(`${cap(theM(m))} ${crit?'lands a brutal blow on':'hits'} ${tn} for ${dmg} damage${crit?'!':'.'}`,t.hero?'hurt':'threat',`${det} · ${dstr(crit?n*2:n,d,b)}`);
+  if(t.hp<=0){t.hp=0;if(t.hero)die(m.boss?'the Hollow King':`a ${m.name}`);else{t.down=true;log(`${t.name} falls!`,'hurt')}}
+}
+function monstersAct(){
+  for(const m of room().mons.slice()){
+    if(G.over)return;if(!m.aware)continue;
+    if(m.slow){m.tick^=1;if(m.tick){log(`${cap(theM(m))} gathers itself slowly.`,'sys');continue}}
+    monAttack(m);
+  }
+}
+function compAct(c){
+  const foes=room().mons;if(!foes.length)return;
+  if(c.role==='healer'&&c.heals>0){
+    const hurt=G.party.filter(m=>m.down||m.hp/m.maxhp<.4).sort((a,b)=>a.hp/a.maxhp-b.hp/b.maxhp)[0];
+    if(hurt){c.heals--;const h=roll(1,8,c.stats.wis+Math.floor(G.lvl/2)),was=hurt.down;hurt.down=false;hurt.hp=Math.min(hurt.maxhp,hurt.hp+h);
+      log(`${c.name} speaks a word of healing over ${hurt.hero?'you':hurt.name}. ${was?(hurt.hero?'You':hurt.name)+' get back up! ':''}+${h} HP.`,'heal','1d8'+sgn(c.stats.wis+Math.floor(G.lvl/2)));return}
+  }
+  const tgt=c.role==='tank'?(foes.find(m=>m.boss)||foes[0]):foes.reduce((a,b)=>a.hp<=b.hp?a:b);
+  if(c.role==='caster'){
+    const w=wdef(c.weapon),th=prof()+c.stats.int+w.bonus,{r:rl,t}=d20(!tgt.aware),tot=rl+th;tgt.aware=true;
+    if(rl===1||(rl!==20&&tot<tgt.ac)){log(`${c.name}’s Fire Bolt splashes against the wall beside ${theM(tgt)}.`,'miss',`${t}${sgn(th)}=${tot} vs AC ${tgt.ac}`);return}
+    const nd=G.lvl>=5?2:1,mult=rl===20?2:1;let dmg=roll(nd*mult,10);if(WEAPONS[c.weapon.id].spell)dmg+=roll(1,6);tgt.scorched=true;
+    log(`${c.name} hurls a Fire Bolt at ${theM(tgt)} for ${dmg} damage.`,'ally',`${t}${sgn(th)}=${tot} vs AC ${tgt.ac} · ${nd*mult}d10 fire`);
+    hurt(tgt,dmg);return;
+  }
+  if(c.role==='skirmisher'&&!c.sneakUsed){c.sneakUsed=true;strike(c,tgt,{adv:true,sneak:2});return}
+  strike(c,tgt,{mark:c.role==='archer'});
+}
+function wyrmBreath(){
+  const b=room().mons.find(m=>m.k==='wyrm');if(!b)return;b.tick=(b.tick||0)+1;
+  if(b.tick%3===2){log('Vharzhul draws a breath. The air goes very still. Brace yourselves.','threat');return}
+  if(b.tick%3!==0)return;
+  log('Vharzhul breathes. A river of fire pours over the party!','big');
+  for(const m of living()){const base=roll(6,6),rl=roll(1,20),sv=rl+m.stats.dex+(m.hero&&EXPERTISE[m.cls]==='dex'?3:0),half=sv>=16;let d=half?Math.floor(base/2):base;
+    if(m.hero&&m.temp>0){const a=Math.min(m.temp,d);m.temp-=a;d-=a}
+    m.hp-=d;log(`${m.hero?'You':m.name} ${half?'dive aside and take':'take'} ${d} fire damage.`,m.hero?'hurt':'threat',`DEX save d20 ${rl}${sgn(sv-rl)}=${sv} vs DC 16 · 6d6${half?' halved':''}`);
+    if(m.hp<=0){m.hp=0;if(m.hero){die('Vharzhul\u2019s fire');return}m.down=true;log(`${m.name} falls!`,'hurt')}}
+}
+function bossRegen(){
+  wyrmBreath();if(G.over)return;
+  const b=room().mons.find(m=>m.k==='king');if(!b)return;
+  if(b.scorched)log(`The burns keep the Hollow King’s wounds from closing.`,'magic');
+  else if(b.hp<b.maxhp){const h=Math.min(10,b.maxhp-b.hp);b.hp+=h;log(`The Hollow King’s wounds knit shut. He regains ${h} HP.`,'threat')}
+  b.scorched=false;
+}
+function round(){
+  if(G.over)return;const r=room();
+  if(r.mons.some(m=>m.aware)){
+    for(const c of comps()){if(G.over||!r.mons.length)break;if(!c.down)compAct(c)}
+    if(r.mons.length)monstersAct();
+    if(!G.over)bossRegen();
+    if(!G.over&&r.mons.length&&!G.reinforced&&comps().length>=2&&!r.throne&&Math.random()<.06*comps().length){
+      G.reinforced=true;const m=makeMon(pick(monTable()));m.aware=true;r.mons.push(m);retag(r);
+      log(`Drawn by the noise of battle, ${theM(m).replace(/^the (first |second |third |fourth |fifth )?/,'a ')} charges in to join the fight!`,'threat');}
+    if(H().rage>0){H().rage--;if(!H().rage)log('Your rage burns out.','sys')}
+  }
+  if(!G.over&&!r.mons.length&&G.fighting)afterFight();
+}
+function afterFight(){
+  G.fighting=false;G.reinforced=false;H().rage=0;
+  log(`The fighting is over. The room falls quiet.`,'sys');
+  const healer=(H().cls==='cleric')||comps().some(c=>c.role==='healer'&&!c.down);
+  for(const c of comps().filter(c=>c.down)){
+    if(healer){c.down=false;c.hp=1;log(`${c.name} is badly hurt, but a whispered prayer keeps them in the fight. (1 HP)`,'heal');continue}
+    const rl=roll(1,20);
+    if(rl>=10){c.down=false;c.hp=1;log(`${c.name} groans and sits up. Still alive. (1 HP)`,'heal',`Death save d20 ${rl} vs 10`)}
+    else{G.party=G.party.filter(m=>m!==c);G.flags['dead_'+c.id]=true;G.pack.weapons.push(c.weapon);log(`${c.name} does not get up. You close their eyes and take their ${wname(c.weapon)}. The party is smaller now.`,'hurt',`Death save d20 ${rl} vs 10`)}
+  }
+  for(const c of comps())c.sneakUsed=false;
+  const r=room();if(r.items.length)log(`On the floor: ${listJoin(r.items.map(itemName))}.`,'loot');
+  if(G.ev&&G.ev.waiting&&G.ev.room===G.cur){G.ev.waiting=false;if(G.ev.after)evGo(G.ev.after);else endEvent()}
+}
+function useAbility(target){
+  const h=H(),c=CLASSES[h.cls];h.charges--;
+  if(h.cls==='fighter'){const x=roll(1,10,G.lvl),got=Math.min(x,h.maxhp-h.hp);h.hp+=got;log(`You grit your teeth and catch your second wind, recovering ${got} HP.`,'heal',dstr(1,10,G.lvl))}
+  else if(h.cls==='rogue'){log(`You feint, slip sideways, and strike where ${theM(target)} is open.`,'sys');strike(h,target,{adv:true,sneak:sneakDice()})}
+  else if(h.cls==='barbarian'){h.rage=3;log(`You throw back your head and roar. Rage floods through you.`,'crit');strike(h,target)}
+  else if(h.cls==='bard'){const b=h.stats.cha;for(const m of living())m.hp=Math.min(m.maxhp,m.hp+roll(1,6,b));G.bless=true;log(`You sing a marching song from the old wars. Everyone stands a little taller: +1d6${sgn(b)} HP each and +1 to hit for this floor.`,'heal')}
+  else if(h.cls==='druid'){h.temp=10+2*G.lvl;log(`Your bones crack and lengthen. Fur bursts through your skin. You are a cave bear, with ${h.temp} temporary HP.`,'magic')}
+  else if(h.cls==='monk'){log(`You move faster than the eye can follow.`,'sys');for(let i=0;i<3;i++){if(!room().mons.includes(target))break;strike(h,target)}}
+  else if(h.cls==='paladin'){strike(h,target,{smite:true})}
+  else if(h.cls==='ranger'){log(`You nock, draw and loose, again and again.`,'sys');for(const m of room().mons.slice())if(room().mons.includes(m))strike(h,m)}
+  else if(h.cls==='sorcerer'){const ms=room().mons.slice();if(ms.length)G.fighting=true;log(`A bead of fire leaves your fingertip and blooms into a roaring ball of flame.`,'crit',`3d6+${G.lvl} each`);for(const m of ms){m.aware=true;m.scorched=true;const d=roll(3,6,G.lvl);log(`${cap(theM(m))} burns for ${d}.`,'hit');hurt(m,d)}}
+  else if(h.cls==='warlock'){target.hexed=true;log(`You whisper a word your patron taught you. A shadow settles on ${theM(target)}.`,'magic');blastAt(target)}
+  else if(h.cls==='cleric'){const x=roll(1,8,h.stats.wis+Math.floor(G.lvl/2)),was=target.down;target.down=false;const got=Math.min(x,target.maxhp-target.hp);target.hp+=got;
+    log(`You speak a word of healing over ${target.hero?'yourself':target.name}. ${was?target.name+' gets back up! ':''}+${got} HP.`,'heal',dstr(1,8,h.stats.wis+Math.floor(G.lvl/2)))}
+  else{
+    const darts=3+Math.floor((G.lvl-1)/3)+(WEAPONS[h.weapon.id].spell?1:0),hits={};
+    room().mons.forEach(o=>o.aware=true);if(room().mons.length)G.fighting=true;
+    for(let i=0;i<darts;i++){const alive=room().mons;if(!alive.length)break;const t=alive.reduce((a,b)=>a.hp<=b.hp?a:b),d=roll(1,4,1);hits[theM(t)]=(hits[theM(t)]||0)+d;hurt(t,d)}
+    log(`${darts} darts of blue light streak from your fingers: ${Object.entries(hits).map(([n,d])=>`${d} to ${n}`).join(', ')}.`,'magic',`${darts}×1d4+1`);
+  }
+}
+function blastAt(t){const beams=G.lvl>=5?2:1;for(let i=0;i<beams;i++){const tt=room().mons.includes(t)?t:room().mons[0];if(!tt)break;strike(H(),tt,{blast:true})}}
+function drink(target){
+  const t=target||H(),x=roll(2,4,2+G.depth),was=t.down;G.pack.potion--;t.down=false;const got=Math.min(x,t.maxhp-t.hp);t.hp+=got;
+  if(!t.hero)mood({[t.id]:1},true);
+  log(t.hero?`You drink a Healing Draught and recover ${got} HP.`:`You tip a Healing Draught between ${t.name}’s lips. ${was?t.name+' gets back up! ':''}+${got} HP.`,'heal',dstr(2,4,2+G.depth));
+}
+function readCinders(){
+  G.pack.fire--;const ms=room().mons.slice();if(ms.length)G.fighting=true;
+  log(`You read the Scroll of Cinders aloud. The words catch fire, and the fire rolls across the room.`,'crit','3d6 each');
+  for(const m of ms){const d=roll(3,6);m.scorched=true;log(`${cap(theM(m))} burns for ${d}.`,'hit');hurt(m,d)}
+}
+function readFarSight(){G.pack.map--;E.farSight();log(`The Scroll of Far Sight crumbles, and for a moment you see the whole floor laid out like a map.`,'magic')}
+function flee(){
+  const h=H(),r=room(),dc=10+r.mons.filter(m=>m.aware).length,rl=roll(1,20),b=h.stats.dex+(isRogue()?3:0),tot=rl+b;
+  const back=G.prev&&Object.values(r.exits).includes(G.prev)?G.prev:Object.values(r.exits)[0];
+  const det=`d20 ${rl}${sgn(b)}=${tot} vs DC ${dc}`;
+  if(rl!==1&&tot>=dc){
+    const fallen=comps().filter(c=>c.down);
+    log(`You break away and the party runs back the way you came.`,'sys',det);
+    for(const c of fallen){G.party=G.party.filter(m=>m!==c);G.flags['dead_'+c.id]=true;log(`${c.name} is left behind on the floor. You do not see them again.`,'hurt')}
+    mood(fallen.length?{'*':-3,maren:-4,gruk:-4,brannoc:-4}:{maren:-1,gruk:-2});
+    G.fighting=false;for(const c of comps())c.sneakUsed=false;
+    enterRoom(back);return true;
+  }
+  log(`You try to break away, but they cut you off.`,'hurt',det);return false;
+}
+function die(by){
+  G.over={win:false,by};
+  log(`You fall. The torch rolls from your hand and gutters out. ${H().name}’s delve ends on floor ${G.depth}, killed by ${by}.`,'big');
+  endStats();
+}
+function win(){
+  const ch=G.chapter||0;
+  if(ch<CHAPTERS.length-1){
+    G.over={win:true,chapter:true};
+    const c=comps().map(m=>m.name);
+    const prize=ITEMS[chap().prize].name;
+    log(ch===0?`You lift the Ember Crown. It is warm, like a hearth on a winter night.${c.length?` ${listJoin(c)} ${c.length>1?'gather':'comes'} close to look at it.`:''} The long climb back up is quiet. Nothing in the Emberdeep dares stop you.`
+      :`You lift the Tide Crown from the sand. It is cold, and it is wet, and it will always be wet.${c.length?` ${listJoin(c)} ${c.length>1?'wring':'wrings'} out their cloaks.`:''} The abbey is silent behind you.`,'big');
+    log(ch===0?'That night, in the tavern at Ashmoor, the Ember Crown begins to whisper. It speaks of a sister crown under the lake at Mirelight, where an abbey sank in a single night.'
+      :'Side by side on the tavern table, the Ember Crown and the Tide Crown hum the same low note. Far to the north, something answers. The Ashen Spire is waking.','event');
+    log(`Chapter ${ch+1} complete: ${chap().name}. ${H().name} has taken the ${prize}.`,'crit');
+    log(`Level ${G.lvl} · Party of ${G.party.length} · ${G.kills} foes slain · ${G.gold} gold`,'sys');
+    save();return;
+  }
+  G.over={win:true,pendingFinale:true};
+  log('You lift the Sky Crown from the gold. It is light as air, and it wants to rise. For the first time in a thousand years, three crowns are together again. They pull at each other, and at you.','big');
+  return;
+}
+function nextChapter(){
+  G.chapter=(G.chapter||0)+1;G.depth=1;G.over=null;G.done=G.done.filter(id=>EVENTS[id]&&EVENTS[id].ch===undefined&&false);
+  for(const m of G.party){m.down=false;m.hp=m.maxhp}
+  G.rooms={town:{x:-1,y:-1,exits:{},mons:[],items:[],feature:null,hidden:null,visited:true,seen:true,searched:true,stairs:false,throne:false,event:null,name:'the Lantern and Key',desc:['The tavern at Ashmoor is warm and loud. A fire roars, and the smell of bread and ale is almost too much after so long underground.']}};
+  G.cur='town';G.prev=null;G.theme='Ashmoor';G.ev=null;G.evQueue=[];G.menu=null;G.fighting=false;
+  log(`Chapter ${G.chapter+1}: ${chap().name}`,'big');
+  describe(room(),'Between adventures');
+  log(chap().intro,'event');
+  startEvent('tavern');
+}
+function finale(){G.over=null;startEvent('finale')}
+function oldWin(){
+  G.over={win:true};
+  const c=comps().map(m=>m.name);
+  log(`You lift the Ember Crown. It is warm, like a hearth on a winter night.${c.length?` ${listJoin(c)} ${c.length>1?'gather':'comes'} close to look at it.`:''} The long climb back up is quiet. Nothing in the Emberdeep dares stop you.`,'big');
+  log(`Victory. ${H().name} the ${CLASSES[H().cls].name.toLowerCase()} has taken the Ember Crown.`,'crit');
+  endStats();
+}
+function endStats(){log(`Floor ${G.depth} · Level ${G.lvl} · Party of ${G.party.length} · ${G.kills} foes slain · ${G.gold} gold`,'sys');try{localStorage.removeItem(SAVE_KEY)}catch(e){}}
+
+/* ---------- room actions ---------- */
+function take(it,silentRoom){
+  const h=H(),r=room();if(!silentRoom)r.items=r.items.filter(o=>o!==it);
+  switch(it.k){
+    case 'gold':G.gold+=it.amt;log(`You pocket ${it.amt} gold coins.`,'loot');break;
+    case 'potion':case 'fire':case 'map':G.pack[it.k]++;log(`You take ${itemName(it)} and pack it away.`,'loot');break;
+    case 'whet':h.weapon.plus=(h.weapon.plus||0)+1;log(`You hone your ${wname({id:h.weapon.id})} on the Runed Whetstone. It is now a ${wname(h.weapon)}.`,'loot');break;
+    case 'ward':h.acb++;log(`You fasten the Ironbark Charm to your belt. It feels like armor. +1 AC.`,'loot');break;
+    case 'vigor':h.bonusHP+=4;h.maxhp=calcMax(h);h.hp+=4;log(`You drink the Elixir of Vigor. Your heart beats stronger. +4 maximum HP.`,'heal');break;
+    case 'weapon':G.pack.weapons.push(it.w);log(`You take the ${wname(it.w)} (${dstr(WEAPONS[it.w.id].n,WEAPONS[it.w.id].d)}). Equip it from Party & gear.`,'loot');break;
+    case 'crown':case 'tidecrown':case 'skycrown':win();break;
+  }
+}
+function search(){
+  const r=room();r.searched=true;
+  if(check('int',12,'Search the room')&&r.hidden){r.items.push(r.hidden);log(`Behind a loose stone you find ${itemName(r.hidden)}.`,'loot');r.hidden=null}
+  else log(pick(['You search every corner and find nothing but dust.','You find nothing of use.','You turn over rubble and old rags. Nothing.']),'miss');
+  wander(.12);
+}
+function rest(){
+  G.restUsed=true;log(`The party sits with their backs to the wall and closes their eyes.`,'sys');
+  if(wander(.25))return;
+  const full=H().cls==='fighter';
+  for(const m of G.party){m.down=false;const got=full?m.maxhp-m.hp:Math.min(Math.ceil(m.maxhp/2),m.maxhp-m.hp);m.hp+=got}
+  if(H().cls==='sorcerer'&&H().charges<maxCharges()){H().charges++;log('Your blood hums. One Fireball returns to you.','magic')}
+  log(full?`Nothing disturbs you. You keep watch while the others sleep, and everyone wakes fully healed.`:`Nothing disturbs you. Everyone recovers half their HP.`,'heal');
+}
+function feature(act){
+  const h=H(),r=room(),f=r.feature;
+  if(act==='check'){f.checked=true;if(check('int',12,'Check for traps')){if(f.trap){f.trap=false;log(`You find a poisoned needle hidden in the lock and jam it with a splinter.`,'magic')}else log(`You check the lock and hinges carefully. No traps.`,'sys')}else log(`You look the chest over but don’t spot anything.`,'miss')}
+  else if(act==='open'){
+    f.used=true;
+    if(f.trap){if(check('dex',12+Math.floor(G.depth/2),'Dexterity save'))log(`A needle snaps out of the lock. You jerk your hand back just in time.`,'miss');
+      else{log(`A needle snaps out of the lock and stabs your hand. Poison burns up your arm.`,'hurt');E.dmg(2,6,G.depth,'a poisoned needle');if(G.over)return}}
+    const loot=[{k:'gold',amt:roll(3,6,G.depth*5)},newItem(Math.random()<.5?'potion':pickItemKey())];r.items.push(...loot);log(`The lid creaks open. Inside: ${listJoin(loot.map(itemName))}.`,'loot');mood({pip:1});
+  }else if(act==='fountain'){
+    f.used=true;const x=Math.random();
+    if(x<.6){for(const m of living()){m.hp=Math.min(m.maxhp,m.hp+roll(2,6))}log(`The water is cold and sweet. Everyone who drinks recovers 2d6 HP.`,'heal')}
+    else if(x<.85)log(`The water tastes of iron. Nothing happens.`,'sys');
+    else{log(`The water is foul. You retch.`,'hurt');E.dmg(1,6,0,'bad water')}
+  }else if(act==='offer'){f.used=true;G.gold-=10;G.bless=true;log(`You leave 10 gold in the bowl. The candle flares, and the whole party feels steadier. +1 to hit for the rest of this floor.`,'magic');mood({ysolde:1})}
+  else if(act==='pray'){f.used=true;if(check('wis',11,'Prayer')){for(const m of living())m.hp=Math.min(m.maxhp,m.hp+roll(1,6,G.depth));log(`A small warmth answers. The party’s wounds ease.`,'heal');mood({ysolde:1})}else log(`You kneel and pray. Nothing answers.`,'sys')}
+  else if(act==='bones'){f.used=true;const loot=[newItem(Math.random()<.4?'weapon':pickItemKey()),{k:'gold',amt:roll(2,6,G.depth*2)}];r.items.push(...loot);log(`You go through the dead adventurer’s pack and find ${listJoin(loot.map(itemName))}.`,'loot')}
+}
+function equip(i,m){
+  const w=G.pack.weapons[i];G.pack.weapons.splice(i,1);G.pack.weapons.push(m.weapon);m.weapon=w;
+  const d=WEAPONS[w.id];
+  log(m.hero?`You take up ${d.mythic?d.name:'the '+wname(w)}.${d.lore?' '+d.lore:''}`:`You hand ${d.mythic?d.name:'the '+wname(w)} to ${m.name}. ${m.name} weighs it and nods.`,d.mythic?'mythic':'loot');
+  if(!m.hero)mood({[m.id]:d.mythic?3:1});
+}
+
+/* ---------- choices ---------- */
+function subCheck(stat,dc){
+  const h=H(),help=helperFor(stat),b=h.stats[stat]+(EXPERTISE[h.cls]===stat?3:0)+(help?2:0);
+  return `<b>${stat.toUpperCase()} ${typeof dc==='number'?'DC '+dc:'contest'}</b> · you roll d20${sgn(b)}${help?` (with ${help.name})`:''}`;
+}
+function buildChoices(){
+  const C=[];
+  const add=(label,act,o={})=>C.push({label,act,cmds:o.cmds||[],sub:o.sub||'',kind:o.kind||'',combat:!!o.combat,echo:o.echo!==false});
+  if(!G){
+    if(titleState.stage==='class'){
+      const s=loadSave();
+      if(s&&s.party)add(`Continue as ${s.party[0].name}`,()=>{G=s;log('You take up your torch again.','sys');describe(room(),`${G.theme} · Floor ${G.depth}`);if(G.ev&&!G.ev.waiting)log(txt(EVENTS[G.ev.id].nodes[G.ev.node].t,G.ev)||'','event')},{cmds:['continue','c'],sub:`Level ${s.lvl}, chapter ${(s.chapter||0)+1}, floor ${s.depth}, party of ${s.party.length}`,kind:'prime',echo:false});
+      for(const [k,c] of Object.entries(CLASSES))add(c.name,()=>{titleState={stage:'name',cls:k};titleLog.push({t:'p',cls:'event',text:`A ${c.name.toLowerCase()}. ${c.role} What is your name? Pick one, or type your own below.`})},{cmds:[k,'play '+k],sub:`${c.role} HP ${c.hd+c.stats.con+4}, AC ${c.ac}. ${c.abil.name}: ${c.abil.desc}`,kind:'hero',echo:false});
+    }else{
+      const c=CLASSES[titleState.cls];
+      for(const n of c.names)add(n,()=>start(titleState.cls,n),{cmds:[n.toLowerCase()],kind:'hero',echo:false});
+      add('Choose a different class',()=>{titleState={stage:'class',cls:null};showTitle()},{cmds:['back'],echo:false});
+    }
+    return C;
+  }
+  if(G.over&&G.over.chapter){
+    add(`Continue the story: ${CHAPTERS[(G.chapter||0)+1].name}`,()=>nextChapter(),{cmds:['continue','next','next chapter','go on'],sub:`Chapter ${(G.chapter||0)+2} of ${CHAPTERS.length}. Your hero, party and gear carry on.`,kind:'prime',echo:false});
+    add('End your tale here',()=>{log(`${H().name} hangs up their sword and tells the story of the ${ITEMS[chap().prize].name} for the rest of their days.`,'event');G.over={win:true};endStats();try{localStorage.removeItem(SAVE_KEY)}catch(e){}},{cmds:['end','retire'],echo:false});
+    return C;
+  }
+  if(G.over&&G.over.pendingFinale){add('Decide what to do with the three crowns',()=>finale(),{cmds:['decide','crowns','continue'],kind:'prime',echo:false});return C}
+  if(G.over){add('Begin a new legend',()=>{G=null;titleState={stage:'class',cls:null};showTitle()},{cmds:['new','restart','again','new game'],kind:'prime',echo:false});return C}
+  const h=H(),r=room(),aware=r.mons.filter(m=>m.aware),unaware=r.mons.filter(m=>!m.aware),c=CLASSES[h.cls];
+  const healTargets=G.party.filter(m=>m.down||m.hp<m.maxhp);
+  if(aware.length){
+    for(const m of r.mons)add(`Attack ${theM(m)}`,()=>strike(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,(m.tag?m.tag+' ':'')+m.name],sub:`${hpWord(m)} · AC ${m.ac} · your ${wname(h.weapon)} ${wdice(h,h.weapon)}`,kind:'fight',combat:true});
+    if(r.mons.some(m=>m.k==='king'))add('Burn the Hollow King with your torch',()=>strike(h,r.mons.find(m=>m.k==='king'),{torch:true}),{cmds:['torch','burn','burn king'],sub:'Weak hit, but fire stops him healing this round',kind:'fight',combat:true});
+    if(h.charges>0){
+      if(h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${c.abil.desc} ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='rogue')for(const m of r.mons)add(`Cunning Strike on ${theM(m)}`,()=>useAbility(m),{cmds:['ability','cunning strike','cunning','f'],sub:`Advantage + ${sneakDice()}d6 sneak. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='wizard')add('Cast Magic Missile',()=>useAbility(),{cmds:['ability','magic missile','missile','cast','f'],sub:`${3+Math.floor((G.lvl-1)/3)+(WEAPONS[h.weapon.id].spell?1:0)} darts at the weakest foe. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='cleric')for(const t of healTargets)add(`Healing Word on ${t.hero?'yourself':t.name}`,()=>useAbility(t),{cmds:['heal '+t.name.toLowerCase(),'healing word '+(t.hero?'me':t.name.toLowerCase()),'ability'],sub:`${t.down?'Fallen':t.hp+'/'+t.maxhp+' HP'}. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='barbarian'&&!h.rage)for(const m of r.mons)add(`Rage and attack ${theM(m)}`,()=>useAbility(m),{cmds:['rage','ability','f'],sub:`3 rounds: +2 damage, half damage taken. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='bard')add('Sing the Song of Courage',()=>useAbility(),{cmds:['sing','song','inspire','ability','f'],sub:`Heal everyone, +1 to hit this floor. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='druid'&&!h.temp)add('Wild Shape into a cave bear',()=>useAbility(),{cmds:['wild shape','bear','shape','ability','f'],sub:`${10+2*G.lvl} temporary HP. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='monk')for(const m of r.mons)add(`Flurry of Blows on ${theM(m)}`,()=>useAbility(m),{cmds:['flurry','ability','f'],sub:`Three strikes. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='paladin')for(const m of r.mons)add(`Divine Smite on ${theM(m)}`,()=>useAbility(m),{cmds:['smite','ability','f'],sub:`+${UNDEAD.has(m.k)?3:2}d8 radiant on a hit. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='ranger')add('Loose a Volley',()=>useAbility(),{cmds:['volley','ability','f'],sub:`One arrow at every foe. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='sorcerer')add('Cast Fireball',()=>useAbility(),{cmds:['fireball','cast','ability','f'],sub:`3d6+${G.lvl} fire to every foe. ${h.charges} left`,kind:'prime',combat:true});
+      if(h.cls==='warlock')for(const m of r.mons.filter(m=>!m.hexed))add(`Hex ${theM(m)} and blast it`,()=>useAbility(m),{cmds:['hex','ability','f'],sub:`Every party hit on it adds 1d6. ${h.charges} left`,kind:'prime',combat:true});
+    }
+    if(h.cls==='warlock')for(const m of r.mons)add(`Eldritch Blast at ${theM(m)}`,()=>blastAt(m),{cmds:['blast','eldritch blast','blast '+m.name],sub:`${G.lvl>=5?'2 beams':'1 beam'} of 1d10${sgn(h.stats.cha)} force${m.hexed?' · hexed':''}`,kind:'fight',combat:true});
+    if(G.pack.potion>0){if(h.hp<h.maxhp)add('Drink a Healing Draught',()=>drink(),{cmds:['drink','potion','quaff','heal'],sub:`${G.pack.potion} in your pack`,combat:true});
+      for(const t of comps().filter(t=>t.down))add(`Give a draught to ${t.name}`,()=>drink(t),{cmds:['revive '+t.name.toLowerCase(),'give draught '+t.name.toLowerCase()],sub:'Get them back on their feet',combat:true})}
+    if(G.pack.fire>0)add('Read the Scroll of Cinders',readCinders,{cmds:['read cinders','cinders','fire','burn'],sub:'3d6 fire to every foe here',combat:true});
+    const fallen=comps().filter(t=>t.down).length;
+    add('Flee',()=>{if(!flee())round()},{cmds:['flee','run','escape','retreat'],sub:fallen?'Fallen allies will be left behind!':'Run back the way you came'});
+    return C;
+  }
+  if(G.ev&&!G.ev.waiting&&G.ev.room===G.cur){
+    const node=evNode();
+    for(const o of node.o||[]){
+      if(o.if&&!o.if(G.ev))continue;
+      const label=txt(o.l,G.ev);
+      if(!label)continue;
+      add(label,()=>{if(o.check){const ok=check(o.check[0],o.check[1],o.check[2]);evGo(ok?o.ok:o.no)}else evGo(o.go)},{sub:o.check?(o.sub?txt(o.sub,G.ev)+' · ':'')+subCheck(o.check[0],o.check[1]):(txt(o.sub,G.ev)||''),kind:'ev'});
+    }
+    return C;
+  }
+  if(G.menu==='gear'){
+    G.pack.weapons.forEach((w,i)=>{
+      const d=WEAPONS[w.id];
+      add(`Equip ${d.mythic?d.name:'the '+wname(w)} yourself`,()=>equip(i,h),{sub:`${wdice(h,w)}${d.lore?' · '+d.lore:''} (now ${wname(h.weapon)} ${wdice(h,h.weapon)})`,kind:d.mythic?'myth':''});
+      for(const m of comps())add(`Give ${d.mythic?d.name:'the '+wname(w)} to ${m.name}`,()=>equip(i,m),{sub:`${wdice(m,w)} for ${m.name} (now ${wname(m.weapon)} ${wdice(m,m.weapon)})`,kind:d.mythic?'myth':''});
+    });
+    if(G.pack.potion>0)for(const m of comps().filter(m=>m.hp<m.maxhp))add(`Give a draught to ${m.name}`,()=>drink(m),{sub:`${m.hp}/${m.maxhp} HP`});
+    for(const m of comps())add(`Part ways with ${m.name}`,()=>{G.menu=null;startEvent('dismiss',{who:m.id})},{cmds:['dismiss '+m.name.toLowerCase(),'part ways '+m.name.toLowerCase()],sub:`${LOYAL_WORD(m.loyalty)} · carrying ${wname(m.weapon)}`});
+    add('Done',()=>{G.menu=null},{cmds:['done','back','close'],kind:'prime',echo:false});
+    return C;
+  }
+  if(G.cur==='town'){
+    add('Back to the tavern',()=>startEvent('tavern'),{cmds:['tavern','back','continue'],kind:'prime',echo:false});
+    add('Party & gear',()=>{G.menu='gear'},{cmds:['gear','party','equip'],sub:`${G.pack.weapons.length} weapon${G.pack.weapons.length===1?'':'s'} in your pack`,echo:false});
+    return C;
+  }
+  for(const m of unaware)add(`Attack ${theM(m)}`,()=>strike(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,'ambush',m.name],sub:isRogue()?`Surprise: advantage + ${sneakDice()}d6 sneak attack`:'Surprise: attack with advantage',kind:'fight',combat:true});
+  if(unaware.length&&h.charges>0){
+    if(h.cls==='rogue')add(`Cunning Strike on ${theM(unaware[0])}`,()=>useAbility(unaware[0]),{cmds:['ability','cunning strike','f'],sub:`${h.charges} left`,kind:'prime',combat:true});
+    if(h.cls==='wizard')add('Cast Magic Missile',()=>useAbility(),{cmds:['ability','magic missile','missile','cast','f'],sub:`${h.charges} left`,kind:'prime',combat:true});
+    if(h.cls==='sorcerer')add('Cast Fireball',()=>useAbility(),{cmds:['fireball','cast','ability','f'],sub:`Surprise them. ${h.charges} left`,kind:'prime',combat:true});
+    if(h.cls==='ranger')add('Loose a Volley',()=>useAbility(),{cmds:['volley','ability','f'],sub:`Surprise them. ${h.charges} left`,kind:'prime',combat:true});
+  }
+  if(unaware.length&&h.cls==='warlock')add(`Eldritch Blast at ${theM(unaware[0])}`,()=>blastAt(unaware[0]),{cmds:['blast','eldritch blast'],sub:'Surprise: advantage',kind:'fight',combat:true});
+  if(unaware.length&&G.pack.fire>0)add('Read the Scroll of Cinders',readCinders,{cmds:['read cinders','cinders','fire'],sub:'3d6 fire to every foe here',combat:true});
+  for(const dk of ['n','e','s','w']){
+    const k=r.exits[dk];if(!k)continue;const o=G.rooms[k],dir=DIRV[dk][2];
+    const sub=k===G.prev?'Back the way you came':o.visited?(o.stairs?'The stair room':o.mons.length?'Something is still there':o.event?'Unfinished business':cap(o.name)):(G.farSight&&o.stairs?'Unexplored · the stairs are this way':G.farSight&&o.throne?'Unexplored · the throne room':unaware.length?'Sneak past · unexplored':'Unexplored');
+    add(`Go ${dir}`,()=>move(dk),{cmds:[dk,dir,'go '+dir,'go '+dk,'walk '+dir,'move '+dir],sub,kind:'go'});
+  }
+  if(!unaware.length){
+    for(const it of r.items)add(`Take ${itemShort(it)}`,()=>take(it),{cmds:['take '+(it.k==='gold'?'gold':it.k==='weapon'?WEAPONS[it.w.id].name:ITEMS[it.k].name.toLowerCase()),'take','get','pick up'],sub:it.k==='crown'?'End the delve in victory':it.k==='weapon'?`${dstr(WEAPONS[it.w.id].n,WEAPONS[it.w.id].d)} +${it.w.plus}`:'',kind:it.k==='crown'?'prime':''});
+    if(r.event&&!G.ev)add('Return to the encounter',()=>startEvent(r.event),{sub:'Pick up where you left off',kind:'ev'});
+    const f=r.feature;
+    if(f&&!f.used){
+      if(f.k==='chest'){if(!f.checked)add('Check the chest for traps',()=>feature('check'),{cmds:['check chest','check','disarm'],sub:subCheck('int',12)});add('Open the chest',()=>feature('open'),{cmds:['open chest','open'],sub:f.checked&&!f.trap?'No traps found':'Could be trapped'})}
+      if(f.k==='fountain')add('Drink from the fountain',()=>feature('fountain'),{cmds:['drink fountain','fountain','drink water'],sub:'Most fountains here are clean'});
+      if(f.k==='altar'){if(G.gold>=10)add('Leave 10 gold at the altar',()=>feature('offer'),{cmds:['offer','leave gold','pay'],sub:'+1 to hit for the whole party this floor'});add('Pray at the altar',()=>feature('pray'),{cmds:['pray','kneel'],sub:subCheck('wis',11)})}
+      if(f.k==='bones')add('Search the fallen adventurer',()=>feature('bones'),{cmds:['search bones','bones','loot bones'],sub:'They won’t need it now'});
+    }
+    if(!r.searched)add('Search the room',search,{cmds:['search','search room','look around'],sub:subCheck('int',12)});
+    if(r.stairs)add(chap().stairs==='up'?'Climb the stairs':'Descend the stairs',descend,{cmds:['descend','down','stairs','go down','d','climb','up','go up'],sub:`To floor ${G.depth+1}. Abilities recharge.`,kind:'prime'});
+    if(!G.restUsed&&G.party.some(m=>m.hp<m.maxhp))add('Take a short rest',rest,{cmds:['rest','sleep','short rest','camp'],sub:`Once per floor. ${h.cls==='fighter'?'Heals everyone to full':'Heals everyone by half'}, if nothing finds you`});
+    if(h.charges>0&&h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${h.charges} left`});
+    if(h.charges>0&&h.cls==='cleric')for(const t of healTargets)add(`Healing Word on ${t.hero?'yourself':t.name}`,()=>useAbility(t),{cmds:['heal '+t.name.toLowerCase()],sub:`${t.hp}/${t.maxhp} HP. ${h.charges} left`});
+    if(G.pack.potion>0&&h.hp<h.maxhp)add('Drink a Healing Draught',()=>drink(),{cmds:['drink','potion','quaff','heal'],sub:`${G.pack.potion} in your pack`});
+    if(h.charges>0&&h.cls==='bard'&&G.party.some(m=>m.hp<m.maxhp))add('Sing the Song of Courage',()=>useAbility(),{cmds:['sing','song','ability'],sub:`Heal everyone, +1 to hit this floor. ${h.charges} left`});
+    if(G.pack.weapons.length||comps().length||(G.pack.potion>0&&comps().some(m=>m.hp<m.maxhp)))add('Party & gear',()=>{G.menu='gear'},{cmds:['gear','party','equip','inventory gear'],sub:`${G.pack.weapons.length} weapon${G.pack.weapons.length===1?'':'s'} in your pack`,echo:false});
+  }
+  if(G.pack.map>0&&!G.farSight)add('Read the Scroll of Far Sight',readFarSight,{cmds:['read far sight','far sight','read map'],sub:'Reveal this floor on your map'});
+  return C;
+}
+function runChoice(c){
+  if(!c)return;
+  if(G&&c.echo)G.log.push({t:'cmd',text:c.label});
+  if(G&&!G.over)G.turn++;
+  c.act();
+  if(G&&!G.over&&c.combat)round();
+  if(G&&!G.over)processQueue();
+  save();render();
+}
+
+/* ---------- command parser ---------- */
+const norm=s=>(' '+s.toLowerCase().replace(/[^a-z0-9 ]/g,' ')+' ').replace(/ (the|a|an|at|to|on|my) /g,' ').replace(/ (the|a|an|at|to|on|my) /g,' ').replace(/\s+/g,' ').trim();
+const HELP='Tap a choice, or type a command. Try: north (or n), attack goblin, search, take, drink, open chest, rest, descend, flee, gear. Also: look, party, inventory, map, help. A number picks that choice.';
+function runCommand(raw){
+  const t=norm(raw);if(!t)return;
+  const C=choiceCache;
+  if(!G){
+    if(titleState.stage==='name'&&!/^\d+$/.test(t)&&!C.some(c=>c.cmds.includes(t))){const nm=raw.trim().slice(0,24).replace(/[<>&"]/g,'');if(nm){start(titleState.cls,nm.charAt(0).toUpperCase()+nm.slice(1));save();render()}return}
+    const c=/^\d+$/.test(t)?C[+t-1]:C.find(c=>c.cmds.includes(t)||norm(c.label)===t);
+    if(c)runChoice(c);else{titleLog.push({t:'p',text:'Choose a class to begin: type fighter, rogue, wizard or cleric.',cls:'sys'});render()}
+    return;
+  }
+  G.log.push({t:'cmd',text:raw.trim().slice(0,80)});
+  if(/^\d+$/.test(t)){const c=C[+t-1];if(c){c.echo=false;runChoice(c)}else{log(`There is no choice ${t}.`,'sys');render()}return}
+  if(['help','h','commands'].includes(t)){log(HELP,'sys');render();return}
+  if(['look','l','describe'].includes(t)){describe(room());if(G.ev&&!G.ev.waiting)log(txt(evNode().t,G.ev)||'','event');render();return}
+  if(['inventory','i','inv','pack','bag'].includes(t)){log(`In your pack: ${G.pack.potion} Healing Draught${G.pack.potion===1?'':'s'}, ${G.pack.fire} Scroll${G.pack.fire===1?'':'s'} of Cinders, ${G.pack.map} Scroll${G.pack.map===1?'':'s'} of Far Sight, ${G.gold} gold${G.pack.weapons.length?', and '+listJoin(G.pack.weapons.map(wname)):''}.`,'sys');render();return}
+  if(['party','team','companions','who'].includes(t)&&!C.some(c=>c.cmds.includes(t))){log(G.party.map(m=>`${m.hero?m.name+' (you)':m.name}, ${m.hero?CLASSES[m.cls].name:m.cls}: ${m.down?'fallen':m.hp+'/'+m.maxhp+' HP'}, ${wname(m.weapon)}`).join('. ')+'.','sys');render();return}
+  if(['map','m'].includes(t)){G.log.push({t:'pre',text:mapText(false)});render();return}
+  let c=C.find(c=>c.cmds.includes(t)||norm(c.label)===t);
+  if(!c)c=C.find(c=>c.cmds.some(x=>x.length>2&&(x.startsWith(t)||t.startsWith(x+' '))))||C.find(c=>norm(c.label).startsWith(t)&&t.length>2)||C.find(c=>t.length>3&&norm(c.label).includes(t));
+  if(!c&&/^(attack|hit|kill|fight)\b/.test(t))c=C.find(c=>c.label.startsWith('Attack'));
+  if(c){c.echo=false;runChoice(c)}
+  else{log(`You can’t do that right now. Type help to see commands, or pick one of the choices.`,'sys');render()}
+}
+
+/* ---------- map ---------- */
+function mapText(html=true){
+  if(G.cur==='town')return 'You are in Ashmoor.';
+  const sp=(s,c)=>html&&c?`<span class="${c}">${s}</span>`:s;
+  const lines=[];
+  for(let y=0;y<GRID;y++){
+    let row='',below='';
+    for(let x=0;x<GRID;x++){
+      const r=G.rooms[key(x,y)];let ch=' ',cls='';
+      if(r&&key(x,y)===G.cur){ch='@';cls='me'}
+      else if(r&&r.visited){ch=r.stairs?'▼':r.throne?'♛':r.mons.length?'!':r.event?'◆':'■';cls=r.stairs||r.throne?'st':r.event?'ev':''}
+      else if(r&&r.seen){ch=(G.farSight&&r.stairs)?'▼':(G.farSight&&r.throne)?'♛':'?';cls=G.farSight&&(r.stairs||r.throne)?'st':'dim'}
+      row+=sp(ch,cls);
+      if(x<GRID-1){const o=G.rooms[key(x+1,y)];row+=(r&&o&&r.exits.e&&(r.visited||o.visited||G.farSight))?'───':'   '}
+      const ob=G.rooms[key(x,y+1)];below+=(r&&ob&&r.exits.s&&(r.visited||ob.visited||G.farSight))?'│':' ';if(x<GRID-1)below+='   ';
+    }
+    lines.push(row);if(y<GRID-1)lines.push(below);
+  }
+  const plain=lines.map(l=>l.replace(/<[^>]+>/g,''));
+  let top=0,bot=plain.length-1;while(top<bot&&!plain[top].trim())top++;while(bot>top&&!plain[bot].trim())bot--;
+  const left=Math.min(...plain.slice(top,bot+1).filter(l=>l.trim()).map(l=>l.search(/\S/)));
+  const out=[];for(let i=top;i<=bot;i++){let l=lines[i],n=left;while(n>0&&l.startsWith(' ')){l=l.slice(1);n--}out.push(l)}
+  return out.join('\n');
+}
+
+/* ---------- save / title ---------- */
+function save(){try{if(G&&(!G.over||G.over.chapter||G.over.pendingFinale))localStorage.setItem(SAVE_KEY,JSON.stringify(G))}catch(e){}}
+function loadSave(){try{const s=localStorage.getItem(SAVE_KEY);return s?JSON.parse(s):null}catch(e){return null}}
+function showTitle(){
+  titleLog=[
+    {t:'scene',title:'Beneath the keep of Ashmoor',eyebrow:'A delve in eight floors',paras:[
+      'Under the ruined keep, a stair goes down into the Emberdeep: eight floors of cellar, flooded hall, crypt and forge, each deeper and hotter than the last.',
+      'At the bottom sits the Hollow King, who has been dead for three hundred years and has not noticed. The Ember Crown rests on his knee. Many have gone down for it. None have come back up.',
+      'You go down alone. On the way you will meet others: prisoners, wanderers, sellswords. Who you save, who you leave, and what you trade for will follow you down. Most choices come with a d20 roll: your bonus against a difficulty number.']},
+    {t:'p',text:'Three crowns. Three adventures. Choose who goes down first.',cls:'big'}];
+  render();
+}
+function start(cls,name){
+  const h=makeHero(cls,name);
+  G={depth:1,lvl:1,xp:0,turn:0,log:[],over:null,party:[h],pack:{potion:2,fire:0,map:0,weapons:[]},gold:0,kills:0,flags:{},done:[],rooms:{},cur:null,prev:null,restUsed:false,farSight:false,theme:'',ev:null,menu:null,bless:false,fighting:false};
+  h.maxhp=calcMax(h);h.hp=h.maxhp;
+  genFloor();
+  log(`${name} lights a torch, checks their ${wname(h.weapon)}, and starts down the stairs alone.`,'sys');
+  markSeen();describe(room(),`${G.theme} · Floor ${G.depth}`);
+}
+
+/* ---------- render ---------- */
+const escHTML=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+function renderEntry(e){
+  if(e.t==='scene')return `<div class="scene"><h2>${e.eyebrow?`<small>${e.eyebrow}</small>`:''}${e.title}</h2>${e.paras.map(p=>`<p>${p}</p>`).join('')}</div>`;
+  if(e.t==='cmd')return `<p class="cmd">&gt; ${escHTML(e.text)}</p>`;
+  if(e.t==='pre')return `<pre>${escHTML(e.text)}</pre>`;
+  if(!e.text)return '';
+  return `<p class="${e.cls}">${e.text}${e.detail?`<span class="d">${e.detail}</span>`:''}</p>`;
+}
+function render(){
+  const entries=G?G.log.slice(-170):titleLog;
+  const st=$('#story');st.classList.toggle('intro',!G);st.innerHTML=entries.map(renderEntry).join('');st.scrollTop=st.scrollHeight;
+  choiceCache=buildChoices();
+  $('#choices').innerHTML=choiceCache.map((c,i)=>`<button class="choice ${c.kind}" data-i="${i}"><span class="n">${i+1}</span><span class="l">${c.label}</span>${c.sub?`<span class="s">${c.sub}</span>`:''}</button>`).join('');
+  renderSheet();
+  $('#depthline').innerHTML=G?(G.cur==='town'?`Ashmoor · between chapters`:`${CHAPTERS.length>1?`Ch. ${(G.chapter||0)+1} · `:''}${G.theme} · Floor <b>${G.depth}</b> of ${FLOORS()}`):'A tale in three chapters';
+  $('#cmd').placeholder=!G&&titleState.stage==='name'?'Or type your hero’s name':'Or type a command: go north, attack, search, help';
+}
+function renderSheet(){
+  const S=$('#sheet');
+  if(!G){S.innerHTML=`<div class="who"><span class="cn">Your hero</span><span class="lv">Not chosen</span></div><p class="intro-sheet">Pick a class and a name to begin. You start alone. Companions you recruit will appear here, along with your pack, your weapons and a map of each floor.</p><p class="intro-sheet">Progress saves in this browser after every choice, so you can stop and come back whenever you like.</p>`;return}
+  const h=H(),c=CLASSES[h.cls];
+  const lo=XPT[G.lvl-1],hi=XPT[G.lvl]??XPT[XPT.length-1];
+  const xpPct=G.lvl>=XPT.length?100:Math.min(100,(G.xp-lo)/(hi-lo)*100);
+  const wd=WEAPONS[h.weapon.id];
+  S.innerHTML=`
+  <div class="who"><span class="cn" style="color:${c.col}">${escHTML(h.name)}</span><span class="lv">${c.name} · Level ${G.lvl}</span></div>
+  <div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${h.hp} / ${h.maxhp} HP</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
+  <div class="scores">${STATS.map(s=>`<div class="score"><small>${s.toUpperCase()}</small><b>${10+h.stats[s]*2}</b><em>${sgn(h.stats[s])}</em></div>`).join('')}</div>
+  <dl class="stats">
+    <div><dt>Armor Class</dt><dd>${ac(h)}${h.ward?' +ward':''}</dd></div>
+    <div><dt>To hit</dt><dd>${sgn(prof()+statMod(h,h.weapon)+wdef(h.weapon).bonus+(G.bless?1:0))}</dd></div>
+    <div><dt>Gold</dt><dd>${G.gold}</dd></div>${h.temp?`<div><dt>Bear form</dt><dd>${h.temp} temp</dd></div>`:''}${h.rage?`<div><dt>Raging</dt><dd>${h.rage} rds</dd></div>`:''}
+    <div><dt>XP</dt><dd>${G.xp}</dd></div>
+  </dl>
+  <div class="wpn"><b class="${wd.mythic?'m':''}">${cap(wname(h.weapon))}</b> · ${wdice(h,h.weapon)}${wd.lore?`<br><span style="color:var(--muted);font-size:.8rem">${wd.lore}</span>`:''}</div>
+  <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p></div>
+  <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${m.cls} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${m.role==='healer'?` · ${m.heals} heals left`:''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
+  <div><h3>Pack</h3><ul class="pack">
+    <li class="${G.pack.potion?'':'zero'}"><span>Healing Draught</span><span>× ${G.pack.potion}</span></li>
+    <li class="${G.pack.fire?'':'zero'}"><span>Scroll of Cinders</span><span>× ${G.pack.fire}</span></li>
+    <li class="${G.pack.map?'':'zero'}"><span>Scroll of Far Sight</span><span>× ${G.pack.map}</span></li>
+    ${G.pack.weapons.map(w=>`<li class="${WEAPONS[w.id].mythic?'m':''}"><span>${cap(wname(w))}</span><span>${dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus)}</span></li>`).join('')}
+    ${E.has('hilt')&&!E.has('kingsbane')?`<li class="m"><span>Hilt of Kingsbane</span><span>broken</span></li>`:''}
+  </ul></div>
+  <div><h3>${G.cur==='town'?'Ashmoor':'Map of floor '+G.depth}</h3><pre class="map">${mapText(true)}</pre><div class="legend">@ you · ■ explored · ? unexplored · ! foes · ◆ encounter · ▼ stairs</div></div>`;
+}
+
+/* ---------- input ---------- */
+$('#choices').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b)runChoice(choiceCache[+b.dataset.i])});
+$('#cmdform').addEventListener('submit',e=>{e.preventDefault();const i=$('#cmd'),v=i.value;i.value='';runCommand(v)});
+
+/* ---------- offline support ---------- */
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+/* ---------- boot ---------- */
+function boot(data){if(data&&data.G&&data.G.party){G=data.G;render()}else showTitle()}
+try{window.claude?.hot?.snapshot?.(()=>({G}))}catch(e){}
+window.claude?.hot?.ready?window.claude.hot.ready(boot):boot(window.claude?.hot?.data??{});
+})();
+</script>
+
+</body>
+</html>
