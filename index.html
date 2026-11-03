@@ -1607,7 +1607,7 @@ function take(it,silentRoom){
 function search(){
   const r=room();r.searched=true;
   if(!check('int',12,'Search the room')){
-    if(G._last&&G._last.rl===1){fumble();return}
+    if(G._last&&G._last.rl<=5){fumble();return}
     log(pick(['You search every corner and find nothing but dust.','You find nothing of use.','You turn over rubble and old rags. Nothing.']),'miss');wander(.12);return}
   const great=G._last&&(G._last.rl===20||G._last.tot>=G._last.target+5);
   if(r.hidden){r.items.push(r.hidden);log(`Behind a loose stone you find ${itemName(r.hidden)}.`,'loot');r.hidden=null}
@@ -1625,17 +1625,17 @@ function search(){
   wander(.12);
 }
 function fumble(){
-  const x=Math.random(),h=H();
+  const x=Math.random(),h=H(),bad=G._last.rl===1?'Natural 1':`Rolled a ${G._last.rl}`;
   if(x<.4){
     const t=pick([['You pull at a loose stone and a dart hisses out of the wall','a dart trap'],['You lean on a beam and a block of stone drops from the ceiling','a falling stone'],['You reach into a crack and something sharp and slimy bites deep','a poisoned splinter']]);
-    log(`Natural 1. ${t[0]}.`,'hurt');E.dmg(1,6,G.depth,t[1]);
+    log(`${bad}. ${t[0]}.`,'hurt');E.dmg(1,6,G.depth,t[1]);
   }else if(x<.75){
-    log('Natural 1. You knock over a stack of old pots, and the crash echoes down every corridor.','hurt');
+    log(`${bad}. You knock over a stack of old pots, and the crash echoes down every corridor.`,'hurt');
     if(!wander(1))log('Nothing comes. This time.','sys');
   }else{
     const n=Math.min(G.gold,roll(1,10,G.depth*2));
-    if(n>0){G.gold-=n;log(`Natural 1. Your coin pouch snags on a nail and tears. ${n} gold coins roll through a grate in the floor and are gone.`,'hurt')}
-    else{log('Natural 1. You slice your hand on a rusty hook.','hurt');E.dmg(1,4,0,'a rusty hook')}
+    if(n>0){G.gold-=n;log(`${bad}. Your coin pouch snags on a nail and tears. ${n} gold coins roll through a grate in the floor and are gone.`,'hurt')}
+    else{log(`${bad}. You slice your hand on a rusty hook.`,'hurt');E.dmg(1,4,0,'a rusty hook')}
   }
 }
 function scout(){
@@ -1661,7 +1661,7 @@ function rest(){
 }
 function feature(act){
   const h=H(),r=room(),f=r.feature;
-  if(act==='check'){f.checked=true;const okc=check('int',12,'Check for traps');if(!okc&&G._last&&G._last.rl===1&&f.trap){f.trap=false;log('Natural 1. Your fingers brush the lock, and a poisoned needle snaps out into your thumb.','hurt');E.dmg(2,6,G.depth,'a poisoned needle');return}if(okc){if(f.trap){f.trap=false;log(`You find a poisoned needle hidden in the lock and jam it with a splinter.`,'magic')}else log(`You check the lock and hinges carefully. No traps.`,'sys')}else log(`You look the chest over but don’t spot anything.`,'miss')}
+  if(act==='check'){f.checked=true;const okc=check('int',12,'Check for traps');if(!okc&&G._last&&G._last.rl<=5&&f.trap){f.trap=false;log(`${G._last.rl===1?'Natural 1':'Rolled a '+G._last.rl}. Your fingers brush the lock, and a poisoned needle snaps out into your thumb.`,'hurt');E.dmg(2,6,G.depth,'a poisoned needle');return}if(okc){if(f.trap){f.trap=false;log(`You find a poisoned needle hidden in the lock and jam it with a splinter.`,'magic')}else log(`You check the lock and hinges carefully. No traps.`,'sys')}else log(`You look the chest over but don’t spot anything.`,'miss')}
   else if(act==='open'){
     f.used=true;
     if(f.trap){if(check('dex',12+Math.floor(G.depth/2),'Dexterity save'))log(`A needle snaps out of the lock. You jerk your hand back just in time.`,'miss');
@@ -1787,7 +1787,7 @@ function buildChoices(){
       if(f.k==='altar'){if(G.gold>=10)add('Leave 10 gold at the altar',()=>feature('offer'),{cmds:['offer','leave gold','pay'],sub:'+1 to hit for the whole party this floor'});add('Pray at the altar',()=>feature('pray'),{cmds:['pray','kneel'],sub:subCheck('wis',11)})}
       if(f.k==='bones')add('Search the fallen adventurer',()=>feature('bones'),{cmds:['search bones','bones','loot bones'],sub:'They won’t need it now'});
     }
-    if(!r.searched)add('Search the room',search,{cmds:['search','search room','look around'],sub:subCheck('int',12)});
+    if(!r.searched)add('Search the room',search,{cmds:['search','search room','look around'],sub:subCheck('int',12)+' · a roll of 5 or less backfires'});
     if(r.stairs)add(chap().stairs==='up'?'Climb the stairs':'Descend the stairs',descend,{cmds:['descend','down','stairs','go down','d','climb','up','go up'],sub:`To floor ${G.depth+1}. Abilities recharge.`,kind:'prime'});
     if(!G.restUsed&&G.party.some(m=>m.hp<m.maxhp))add('Take a short rest',rest,{cmds:['rest','sleep','short rest','camp'],sub:`Once per floor. ${h.cls==='fighter'?'Heals everyone to full':'Heals everyone by half'}, if nothing finds you`});
     if(h.charges>0&&h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${h.charges} left`});
