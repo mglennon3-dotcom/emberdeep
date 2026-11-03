@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 22</p>
+  <p class="build">Emberdeep · build 23</p>
 </div>
 
 <script>
@@ -231,7 +231,7 @@ const WEAPONS={
   kingsbane:{name:'Kingsbane',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'radiant'],king:true,mythic:true,lore:'+2 sword reforged in the Ember Forge. +1d8 radiant, and its wounds stop the Hollow King from mending.'},
 };
 const wdef=w=>{const b=WEAPONS[w.id];return{...b,bonus:(b.bonus||0)+(w.plus||0)}};
-const wname=w=>{const b=WEAPONS[w.id];return b.mythic?b.name:(w.plus?`+${w.plus} ${b.name}`:b.name)};
+const wname=w=>{const b=WEAPONS[w.id];return b.mythic?(w.plus?`${b.name} +${(b.bonus||0)+w.plus}`:b.name):(w.plus?`+${w.plus} ${b.name}`:b.name)};
 const wdice=(m,w)=>{const d=wdef(w);return dstr(d.n,d.d,statMod(m,w)+d.bonus)+(d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:'')};
 function statMod(m,w){const d=WEAPONS[w.id];if(d.stat==='finesse')return Math.max(m.stats.str,m.stats.dex);return m.stats[d.stat]}
 
@@ -889,7 +889,7 @@ const EVENTS={
     start:{t:'One forge here still burns hot, and a great anvil stands beside it with hammers ready. You could temper a blade here.',o:[
       {l:'Work the bellows and temper your weapon',check:['str',13],ok:'good',no:'bad'},
       {l:'Leave the forge',go:'leave'}]},
-    good:{t:'You heat, hammer and quench until your arms ache. The edge comes out keen and bright. Your weapon gains +1.',fx:()=>{H().weapon.plus=(H().weapon.plus||0)+1},end:true},
+    good:{t:'You heat, hammer and quench until your arms ache. The edge comes out keen and bright.',fx:()=>{const w=H().weapon;if(canHone(w))hone(w,H());else{E.gold(20);return 'Your weapon is already as fine as steel can be made. You sell the spare steel you forged for 20 gold.'}},end:true},
     bad:{t:'The heat is too much. You burn your hands and the steel comes out no better.',fx:()=>{E.dmg(1,8,0,'a forge fire')},end:true},
     leave:{t:'You leave the fire to burn.',end:true}}},
 
@@ -1697,7 +1697,7 @@ function take(it,silentRoom){
   switch(it.k){
     case 'gold':G.gold+=it.amt;log(`You pocket ${it.amt} gold coins.`,'loot');break;
     case 'potion':case 'fire':case 'map':G.pack[it.k]++;log(`You take ${itemName(it)} and pack it away.`,'loot');break;
-    case 'whet':h.weapon.plus=(h.weapon.plus||0)+1;log(`You hone your ${wname({id:h.weapon.id})} on the Runed Whetstone. It is now a ${wname(h.weapon)}.`,'loot');break;
+    case 'whet':G.pack.whet=(G.pack.whet||0)+1;log('You take the Runed Whetstone. Open your pack to hone a weapon with it.','loot');break;
     case 'ward':h.acb++;log(`You fasten the Ironbark Charm to your belt. It feels like armor. +1 AC.`,'loot');break;
     case 'vigor':h.bonusHP+=4;h.maxhp=calcMax(h);h.hp+=4;log(`You drink the Elixir of Vigor. Your heart beats stronger. +4 maximum HP.`,'heal');break;
     case 'weapon':G.pack.weapons.push(it.w);log(`You take the ${wname(it.w)} (${dstr(WEAPONS[it.w.id].n,WEAPONS[it.w.id].d)}). Equip it from Party & gear.`,'loot');break;
@@ -1815,8 +1815,8 @@ function buildChoices(){
   if(G.menu&&G.menu.type==='item'){itemChoices(add,aware.length>0);return C}
   if(!aware.length){
   if(G.menu==='gear'){
-    for(const [k,n] of [['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight']])
-      if(G.pack[k])add(`${n} × ${G.pack[k]}`,()=>openItem(k,'gear'),{cmds:[n.toLowerCase()],sub:{potion:'Drink it or give it to someone',fire:'3d6 fire to every foe here',map:'Reveal the floor'}[k]+(atMerchant()?` · sells for ${sellPrice(k)} gold`:''),echo:false});
+    for(const [k,n] of [['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']])
+      if(G.pack[k])add(`${n} × ${G.pack[k]}`,()=>openItem(k,'gear'),{cmds:[n.toLowerCase()],sub:{potion:'Drink it or give it to someone',fire:'3d6 fire to every foe here',map:'Reveal the floor',whet:'Hone a weapon: +1, up to +3'}[k]+(atMerchant()?` · sells for ${sellPrice(k)} gold`:''),echo:false});
     G.pack.weapons.forEach((w,i)=>{const d=WEAPONS[w.id];
       add(cap(wname(w)),()=>openItem('w'+i,'gear'),{cmds:[wname(w).toLowerCase()],sub:`${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''} · ${atMerchant()?`sells for ${sellPrice('w'+i)} gold`:'equip or hand it out'}`,kind:d.mythic?'myth':'',echo:false})});
     for(const m of comps())add(`${m.name}, ${CLASSES[ckOf(m)].name.toLowerCase()}`,()=>{G.menu={type:'mate',id:m.id};logCard(m)},{cmds:[m.name.toLowerCase()],sub:`${m.down?'Fallen':m.hp+'/'+m.maxhp+' HP'} · ${LOYAL_WORD(m.loyalty)} · ${wname(m.weapon)}`,echo:false});
@@ -2043,7 +2043,7 @@ function renderSheet(){
   <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p></div>
   <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
   <div><h3>Pack <span class="hint">tap an item to use it</span></h3><ul class="pack">
-    ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight']].map(([k,n])=>G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
+    ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']].map(([k,n])=>k==='whet'&&!G.pack.whet?'':G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
     ${G.pack.weapons.map((w,i)=>`<li class="${WEAPONS[w.id].mythic?'m':''}"><button type="button" data-item="w${i}" class="${G.menu&&G.menu.item==='w'+i?'on':''}"><span>${cap(wname(w))}</span><span>${dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus)}</span></button></li>`).join('')}
     ${E.has('hilt')&&!E.has('kingsbane')?`<li class="m"><span>Hilt of Kingsbane</span><span>broken</span></li>`:''}
   </ul></div>
@@ -2060,28 +2060,28 @@ $('#sheet').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.
 function packSummary(){const n=G.pack.potion+G.pack.fire+G.pack.map+G.pack.weapons.length,c=comps().length;return `${n} item${n===1?'':'s'} · ${c} companion${c===1?'':'s'}`}
 function openItem(key,from){
   G.menu={type:'item',item:key,from};
-  if(key[0]==='w'){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
+  if(/^w\d+$/.test(key)){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
     log(`${cap(wname(w))}: ${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''}. ${d.lore||(d.stat==='finesse'?'Uses Strength or Dexterity, whichever is higher.':d.stat==='int'?'Uses Intelligence.':d.stat==='wis'?'Uses Wisdom.':d.stat==='dex'?'Uses Dexterity.':'Uses Strength.')}`,'sys')}
-  else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
+  else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',whet:'Runed Whetstone: gives one weapon a permanent +1 to hit and damage, up to +3.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
   if(!atMerchant())log('You can sell items to the bone merchant or at the Ashmoor market.','sys');
   const fight=room().mons.some(m=>m.aware);
   if(key==='fire'&&!room().mons.length)log('There is nothing here to burn. Save it for a fight.','sys');
   if(key==='map'&&G.farSight)log('You can already see this whole floor.','sys');
-  if(key[0]==='w'&&fight)log('There is no time to change weapons in the middle of a fight.','sys');
+  if(/^w\d+$/.test(key)&&fight)log('There is no time to change weapons in the middle of a fight.','sys');
   render();
   if(matchMedia('(max-width:880px)').matches)$('#choices').scrollIntoView({behavior:'smooth',block:'center'});
 }
 const atMerchant=()=>!!(G.ev&&(G.ev.id==='merchant'||G.ev.id==='tavern'));
-const sellables=()=>G.pack.potion+G.pack.fire+G.pack.map+G.pack.weapons.length;
+const sellables=()=>G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+G.pack.weapons.length;
 function sellPrice(key){
-  if(key==='potion')return 20;if(key==='fire')return 15;if(key==='map')return 12;
+  if(key==='potion')return 20;if(key==='fire')return 15;if(key==='map')return 12;if(key==='whet')return 15;
   const w=G.pack.weapons[+key.slice(1)];if(!w)return 0;const d=WEAPONS[w.id];
   return d.mythic?50:5+25*(w.plus||0);
 }
 function sellItem(key,mult=1){
   const n=Math.max(1,Math.round(sellPrice(key)*mult));let name;
-  if(key[0]==='w'){const i=+key.slice(1),w=G.pack.weapons[i];name=`the ${wname(w)}`;G.pack.weapons.splice(i,1)}
-  else{G.pack[key]--;name=`a ${{potion:'Healing Draught',fire:'Scroll of Cinders',map:'Scroll of Far Sight'}[key]}`}
+  if(/^w\d+$/.test(key)){const i=+key.slice(1),w=G.pack.weapons[i];name=`the ${wname(w)}`;G.pack.weapons.splice(i,1)}
+  else{G.pack[key]--;name=`a ${{potion:'Healing Draught',fire:'Scroll of Cinders',map:'Scroll of Far Sight',whet:'Runed Whetstone'}[key]}`}
   G.gold+=n;
   log(G.ev&&G.ev.id==='merchant'?`You sell ${name}. The bone merchant counts out ${n} gold with clicking fingers.`:`You sell ${name} for ${n} gold.`,'loot');
   mood({pip:1,oskar:1},true);
@@ -2094,6 +2094,13 @@ function haggle(key){
   if(L.rl===20||L.tot>=L.target+5){log(`${who} throws up their hands and pays full value.`,'crit');sellItem(key,2);return}
   log(`${who} grumbles, but meets you in the middle.`,'loot');sellItem(key,1.5);
 }
+function hone(w,owner){
+  const before=owner?wdice(owner,w):dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus),old=wname(w);
+  w.plus=(w.plus||0)+1;
+  const after=owner?wdice(owner,w):dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus);
+  log(`You work the runes into the edge of ${owner&&!owner.hero?owner.name+'\u2019s ':'your '}${old}. It is now ${wname(w)}: +1 to hit, and damage ${before} \u2192 ${after}.`,'loot');
+}
+const canHone=w=>wdef(w).bonus<3;
 function itemChoices(add,inFight){
   const key=G.menu.item,from=G.menu.from,h=H(),back=()=>{G.menu=from==='gear'?'gear':null};
   if(key==='potion'&&G.pack.potion>0){
@@ -2101,9 +2108,14 @@ function itemChoices(add,inFight){
     for(const m of comps())add(`Give it to ${m.name}`,()=>{back();drink(m)},{sub:m.down?'Fallen: gets them back up':`${m.hp}/${m.maxhp} HP`,combat:inFight});
   }else if(key==='fire'&&G.pack.fire>0){
     if(room().mons.length)add('Read it now',()=>{back();readCinders()},{sub:`Burns ${listJoin(room().mons.map(theM))}`,combat:true,kind:'prime'});
+  }else if(key==='whet'&&(G.pack.whet||0)>0){
+    if(!inFight){
+      for(const m of G.party){const w=m.weapon;if(canHone(w))add(m.hero?`Hone your ${wname(w)}`:`Hone ${m.name}\u2019s ${wname(w)}`,()=>{back();G.pack.whet--;hone(w,m);if(!m.hero)mood({[m.id]:1},true)},{sub:`${wdice(m,w)} \u2192 +1 to hit and damage`,kind:m.hero?'prime':''})}
+      G.pack.weapons.forEach(w=>{if(canHone(w))add(`Hone the ${wname(w)} in your pack`,()=>{back();G.pack.whet--;hone(w,null)},{sub:'+1 to hit and damage'})});
+    }
   }else if(key==='map'&&G.pack.map>0){
     if(!G.farSight)add('Read it now',()=>{back();readFarSight()},{sub:'Reveal this floor',kind:'prime'});
-  }else if(key[0]==='w'){
+  }else if(/^w\d+$/.test(key)){
     const i=+key.slice(1),w=G.pack.weapons[i];
     if(w&&!inFight){add('Equip it yourself',()=>{back();equip(i,h)},{sub:`now: ${wname(h.weapon)} ${wdice(h,h.weapon)} → ${wdice(h,w)}`,kind:'prime'});
       for(const m of comps())add(`Give it to ${m.name}`,()=>{back();equip(i,m)},{sub:`${CLASSES[ckOf(m)].name} · now ${wname(m.weapon)} ${wdice(m,m.weapon)} → ${wdice(m,w)}`});
