@@ -632,7 +632,7 @@ function helperFor(stat){
 function check(stat,dc,label){
   const h=H(),rl=roll(1,20),m=h.stats[stat],exp=EXPERTISE[h.cls]===stat?3:0,help=helperFor(stat),hb=help?2:0;
   const target=typeof dc==='function'?dc():dc;
-  const tot=rl+m+exp+hb,ok=rl===20||(rl!==1&&tot>=target);
+  const tot=rl+m+exp+hb,ok=rl===20||(rl!==1&&tot>=target);G._last={rl,tot,target};
   const parts=[`d20 ${rl}`,sgn(m)+' '+stat.toUpperCase()];if(exp)parts.push('+3 expertise');if(help)parts.push(`+2 ${help.name}`);
   G.log.push({t:'p',cls:'roll '+(ok?'ok':'no'),text:`${label||STATNAME[stat]+' check'}: ${parts.join(' ')} = ${tot} vs ${typeof dc==='function'?'their '+target:'DC '+target}. ${rl===20?'Natural 20! ':rl===1?'Natural 1. ':''}${ok?'Success.':'Failure.'}`});
   if(ok&&stat==='int'&&G.party.some(m=>m.id==='tessaly'))mood({tessaly:1});
@@ -1606,9 +1606,34 @@ function take(it,silentRoom){
 }
 function search(){
   const r=room();r.searched=true;
-  if(check('int',12,'Search the room')&&r.hidden){r.items.push(r.hidden);log(`Behind a loose stone you find ${itemName(r.hidden)}.`,'loot');r.hidden=null}
-  else log(pick(['You search every corner and find nothing but dust.','You find nothing of use.','You turn over rubble and old rags. Nothing.']),'miss');
+  if(!check('int',12,'Search the room')){log(pick(['You search every corner and find nothing but dust.','You find nothing of use.','You turn over rubble and old rags. Nothing.']),'miss');wander(.12);return}
+  const great=G._last&&(G._last.rl===20||G._last.tot>=G._last.target+5);
+  if(r.hidden){r.items.push(r.hidden);log(`Behind a loose stone you find ${itemName(r.hidden)}.`,'loot');r.hidden=null}
+  else{
+    const x=Math.random();
+    if(x<.4){const it={k:'gold',amt:roll(2,6,G.depth*2)};r.items.push(it);log(pick([`Wedged in a crack in the floor you find ${itemName(it)}.`,`Inside a rotten boot in the corner: ${itemName(it)}.`,`Someone hid ${itemName(it)} under a loose flagstone and never came back for it.`]),'loot')}
+    else if(x<.6){const it=newItem('potion');r.items.push(it);log(`Tucked behind a fallen beam you find ${itemName(it)}, still sealed.`,'loot')}
+    else if(x<.7){const it=newItem(Math.random()<.5?'fire':'map');r.items.push(it);log(`Rolled up inside a hollow candlestick: ${itemName(it)}.`,'loot')}
+    else scout();
+  }
+  if(great){
+    const it=Math.random()<.5?{k:'gold',amt:roll(3,6,G.depth*3)}:newItem(pickItemKey());r.items.push(it);
+    log(`A sharp eye pays off. You also find ${itemName(it)}.`,'loot');
+  }
   wander(.12);
+}
+function scout(){
+  const r=room(),hints=[];
+  for(const [dk,k] of Object.entries(r.exits)){
+    const o=G.rooms[k],dir=DIRV[dk][2];o.seen=true;
+    if(o.stairs)hints.push(chap().stairs==='up'?`a hot wind comes down a stair to the ${dir}`:`a cold draught rises from a stair to the ${dir}`);
+    else if(o.throne)hints.push(`something enormous is breathing to the ${dir}`);
+    else if(o.mons.length)hints.push(`${o.mons.length>1?'several things are':'something is'} moving to the ${dir}`);
+    else if(o.event)hints.push(`you hear a voice to the ${dir}`);
+    else if(o.items.length||o.feature)hints.push(`your torchlight catches a glint to the ${dir}`);
+  }
+  if(hints.length)log(`You find scuffs and tracks on the floor, and listen at each doorway. ${cap(listJoin(hints))}.`,'magic');
+  else{const it={k:'gold',amt:roll(2,6,G.depth)};r.items.push(it);log(`The rooms around you are quiet. In the dust you find ${itemName(it)}.`,'loot')}
 }
 function rest(){
   G.restUsed=true;log(`The party sits with their backs to the wall and closes their eyes.`,'sys');
