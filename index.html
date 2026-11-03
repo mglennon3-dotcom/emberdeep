@@ -1871,7 +1871,7 @@ function runCommand(raw){
   G.log.push({t:'cmd',text:raw.trim().slice(0,80)});
   if(/^\d+$/.test(t)){const c=C[+t-1];if(c){c.echo=false;runChoice(c)}else{log(`There is no choice ${t}.`,'sys');render()}return}
   if(['help','h','commands'].includes(t)){log(HELP,'sys');render();return}
-  if(['look','l','describe'].includes(t)){describe(room());if(G.ev&&!G.ev.waiting)log(txt(evNode().t,G.ev)||'','event');render();return}
+  if(['look','l','describe'].includes(t)){describe(room());if(G.ev&&!G.ev.waiting)log(txt(evNode().t,G.ev)||'','event');if(G.ev){const rid=recruitId(G.ev.id)||(G.ev.id==='swap'?G.ev.newId:null)||(G.ev.id==='dismiss'?G.ev.who:null);if(rid&&COMPS[rid])logCard(previewComp(rid))}render();return}
   if(['inventory','i','inv','pack','bag'].includes(t)){log(`In your pack: ${G.pack.potion} Healing Draught${G.pack.potion===1?'':'s'}, ${G.pack.fire} Scroll${G.pack.fire===1?'':'s'} of Cinders, ${G.pack.map} Scroll${G.pack.map===1?'':'s'} of Far Sight, ${G.gold} gold${G.pack.weapons.length?', and '+listJoin(G.pack.weapons.map(wname)):''}.`,'sys');render();return}
   if(['party','team','companions','who'].includes(t)&&!C.some(c=>c.cmds.includes(t))){log(G.party.map(m=>`${m.hero?m.name+' (you)':m.name}, ${m.hero?CLASSES[m.cls].name:m.cls}: ${m.down?'fallen':m.hp+'/'+m.maxhp+' HP'}, ${wname(m.weapon)}`).join('. ')+'.','sys');render();return}
   if(['map','m'].includes(t)){G.log.push({t:'pre',text:mapText(false)});render();return}
