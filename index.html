@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 16</p>
+  <p class="build">Emberdeep · build 17</p>
 </div>
 
 <script>
@@ -622,10 +622,10 @@ function calcMax(m){const c=m.stats.con;return m.hd+c+4+(G.lvl-1)*(Math.ceil(m.h
 function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)}
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
 const DIFFS=[
-  {name:'Story',hp:.8,hit:-1,dmg:-1,extra:0,kHit:0,kDmg:0,kHp:0,heroW:1},
-  {name:'Normal',hp:1,hit:0,dmg:0,extra:0,kHit:.2,kDmg:.3,kHp:.04,heroW:2},
-  {name:'Hard',hp:1.05,hit:0,dmg:0,extra:.2,kHit:.3,kDmg:.5,kHp:.06,heroW:2.5},
-  {name:'Deadly',hp:1.2,hit:1,dmg:1,extra:.4,kHit:.45,kDmg:.8,kHp:.08,heroW:3},
+  {name:'Story',hp:.8,hit:-1,dmg:-1,extra:0,kHit:0,kDmg:0,kHp:0,heroW:1,multi:0,bossMulti:0,focus:0},
+  {name:'Normal',hp:1,hit:0,dmg:0,extra:0,kHit:.2,kDmg:.3,kHp:.04,heroW:2,multi:0,bossMulti:0,focus:.15},
+  {name:'Hard',hp:1.05,hit:0,dmg:0,extra:.2,kHit:.3,kDmg:.5,kHp:.06,heroW:2.5,multi:5,bossMulti:1,focus:.4},
+  {name:'Deadly',hp:1.2,hit:1,dmg:1,extra:.4,kHit:.45,kDmg:.8,kHp:.08,heroW:3,multi:3,bossMulti:1,focus:.55},
 ];
 const diff=()=>DIFFS[G&&G.diff!=null?G.diff:1];
 const monHit=m=>m.hit+diff().hit+Math.floor((G.lvl-1)*diff().kHit);
@@ -1419,7 +1419,8 @@ function gainXP(n){
   }
 }
 function pickTarget(){
-  const alive=living();let tot=0;const w=alive.map(m=>{const x=m.hero?diff().heroW:m.role==='tank'?3:1;tot+=x;return x});
+  const alive=living();
+  if(alive.length>1&&Math.random()<diff().focus){const hurt=alive.filter(m=>m.hp<m.maxhp);if(hurt.length)return hurt.reduce((a,b)=>a.hp/a.maxhp<=b.hp/b.maxhp?a:b)}let tot=0;const w=alive.map(m=>{const x=m.hero?diff().heroW:m.role==='tank'?3:1;tot+=x;return x});
   let r=Math.random()*tot;for(let i=0;i<alive.length;i++){if((r-=w[i])<0)return alive[i]}return alive[0];
 }
 function monAttack(m){
@@ -1431,7 +1432,7 @@ function monAttack(m){
   const [n,d,b0]=m.dmg,b=b0+monDmg();let dmg=Math.max(1,roll(crit?n*2:n,d,b));
   if(t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
   if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
-  t.hp-=dmg;
+  t.hp-=dmg;G.fightDmg=G.fightDmg||{};G.fightDmg[t.hero?'you':t.name]=(G.fightDmg[t.hero?'you':t.name]||0)+dmg;
   log(`${cap(theM(m))} ${crit?'lands a brutal blow on':'hits'} ${tn} for ${dmg} damage${crit?'!':'.'}`,t.hero?'hurt':'threat',`${det} · ${dstr(crit?n*2:n,d,b)}`);
   if(t.hp<=0){t.hp=0;if(t.hero)die(m.boss?'the Hollow King':`a ${m.name}`);else{t.down=true;log(`${t.name} falls!`,'hurt')}}
 }
@@ -1439,7 +1440,8 @@ function monstersAct(){
   for(const m of room().mons.slice()){
     if(G.over)return;if(!m.aware)continue;
     if(m.slow){m.tick^=1;if(m.tick){log(`${cap(theM(m))} gathers itself slowly.`,'sys');continue}}
-    monAttack(m);
+    const n=1+(diff().multi&&G.lvl>=diff().multi&&!m.slow?1:0)+(m.boss?diff().bossMulti:0);
+    for(let i=0;i<n;i++){if(G.over||!room().mons.includes(m))break;monAttack(m)}
   }
 }
 function spellBolt(c,tgt,stat,name='Fire Bolt',type='fire'){
@@ -1537,7 +1539,8 @@ function round(){
 }
 function afterFight(){
   G.fighting=false;G.reinforced=false;for(const p of G.party)p.rage=0;
-  log(`The fighting is over. The room falls quiet.`,'sys');
+  const fd=G.fightDmg||{},tot=Object.values(fd).reduce((a,b)=>a+b,0);G.fightDmg={};
+  log(tot?`The fighting is over. It cost the party ${tot} HP: ${Object.entries(fd).sort((a,b)=>b[1]-a[1]).map(([n,d])=>`${n} ${d}`).join(', ')}.`:'The fighting is over. Nobody took a scratch.','sys');
   const healer=(H().cls==='cleric')||comps().some(c=>ckOf(c)==='cleric'&&!c.down);
   for(const c of comps().filter(c=>c.down)){
     if(healer){c.down=false;c.hp=1;log(`${c.name} is badly hurt, but a whispered prayer keeps them in the fight. (1 HP)`,'heal');continue}
