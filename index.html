@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 21</p>
+  <p class="build">Emberdeep · build 22</p>
 </div>
 
 <script>
@@ -2078,13 +2078,21 @@ function sellPrice(key){
   const w=G.pack.weapons[+key.slice(1)];if(!w)return 0;const d=WEAPONS[w.id];
   return d.mythic?50:5+25*(w.plus||0);
 }
-function sellItem(key){
-  const n=sellPrice(key);let name;
+function sellItem(key,mult=1){
+  const n=Math.max(1,Math.round(sellPrice(key)*mult));let name;
   if(key[0]==='w'){const i=+key.slice(1),w=G.pack.weapons[i];name=`the ${wname(w)}`;G.pack.weapons.splice(i,1)}
   else{G.pack[key]--;name=`a ${{potion:'Healing Draught',fire:'Scroll of Cinders',map:'Scroll of Far Sight'}[key]}`}
   G.gold+=n;
   log(G.ev&&G.ev.id==='merchant'?`You sell ${name}. The bone merchant counts out ${n} gold with clicking fingers.`:`You sell ${name} for ${n} gold.`,'loot');
   mood({pip:1,oskar:1},true);
+}
+function haggle(key){
+  const base=sellPrice(key),who=G.ev&&G.ev.id==='merchant'?'The bone merchant':'The trader';
+  const ok=check('cha',12,'Persuasion (haggle)'),L=G._last;
+  if(L.rl<=5){G.ev.insulted=true;log(`${who} looks deeply offended. \u201cFor that, you get less.\u201d No more haggling with them this visit.`,'hurt');sellItem(key,.75);return}
+  if(!ok){log(`${who} doesn\u2019t budge.`,'miss');sellItem(key,1);return}
+  if(L.rl===20||L.tot>=L.target+5){log(`${who} throws up their hands and pays full value.`,'crit');sellItem(key,2);return}
+  log(`${who} grumbles, but meets you in the middle.`,'loot');sellItem(key,1.5);
 }
 function itemChoices(add,inFight){
   const key=G.menu.item,from=G.menu.from,h=H(),back=()=>{G.menu=from==='gear'?'gear':null};
@@ -2101,7 +2109,11 @@ function itemChoices(add,inFight){
       for(const m of comps())add(`Give it to ${m.name}`,()=>{back();equip(i,m)},{sub:`${CLASSES[ckOf(m)].name} · now ${wname(m.weapon)} ${wdice(m,m.weapon)} → ${wdice(m,w)}`});
       add('Drop it',()=>{back();G.pack.weapons.splice(i,1);log(`You leave the ${wname(w)} behind.`,'sys')},{sub:'Gone for good'});}
   }
-  if(atMerchant()&&!inFight&&sellPrice(key)>0)add(`Sell it for ${sellPrice(key)} gold`,()=>{back();sellItem(key)},{cmds:['sell','sell it'],sub:`You have ${G.gold} gold`,kind:'loot'});
+  if(atMerchant()&&!inFight&&sellPrice(key)>0){
+    const base=sellPrice(key);
+    add(`Sell it for ${base} gold`,()=>{back();sellItem(key)},{cmds:['sell','sell it'],sub:`You have ${G.gold} gold`,kind:'loot'});
+    if(!G.ev.insulted)add('Haggle for more',()=>{back();haggle(key)},{cmds:['haggle','bargain'],sub:`${subCheck('cha',12)} · up to ${base*2} gold, or less if it goes badly`});
+  }
   if(from==='gear')add('Back to pack',()=>{G.menu='gear'},{cmds:['back'],echo:false});
   add('Close',()=>{G.menu=null},{cmds:['close','done'],echo:false,kind:from==='gear'?'':'prime'});
 }
