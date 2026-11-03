@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 19</p>
+  <p class="build">Emberdeep · build 20</p>
 </div>
 
 <script>
@@ -1488,22 +1488,32 @@ function spellBolt(c,tgt,stat,name='Fire Bolt',type='fire'){
   log(`${c.name} ${type==='fire'?'hurls a Fire Bolt at':'strikes'} ${theM(tgt)}${type==='fire'?'':' with '+name} for ${dmg} damage.`,'ally',`${t}${sgn(th)}=${tot} vs AC ${tgt.ac} · ${ex.join(' + ')}`);
   hurt(tgt,dmg);
 }
+function compHeal(c,t){
+  c.charges--;const b=c.stats.wis+Math.floor(G.lvl/2),h=roll(1,8,b),was=t.down;t.down=false;const got=Math.min(h,t.maxhp-t.hp);t.hp+=got;
+  log(`${c.name} speaks a word of healing over ${t.hero?'you':t===c?'themself':t.name}. ${was?(t.hero?'You get':t.name+' gets')+' back up! ':''}+${got} HP.`,'heal','1d8'+sgn(b));
+}
+function compSong(c){
+  c.charges--;const b=c.stats.cha;
+  for(const m of G.party){if(m.down){m.down=false;m.hp=0}m.hp=Math.min(m.maxhp,m.hp+roll(1,6,b))}
+  log(`${c.name} sings a song of courage. Everyone feels it in their chest. (+1d6${sgn(b)} HP each)`,'heal');
+}
+const isHealer=c=>!c.hero&&!c.down&&c.charges>0&&['cleric','bard'].includes(ckOf(c));
 function compAct(c){
   const foes=room().mons;if(!foes.length)return;
   const ck=ckOf(c);if(c.charges==null)c.charges=c.heals??2;
+  if(c.plan){const pl=c.plan;c.plan=null;
+    if(pl.heal&&c.charges>0){const t=G.party.find(m=>m.id===pl.heal);if(t&&(t.down||t.hp<t.maxhp)){compHeal(c,t);return}}
+    if(pl.song&&c.charges>0){compSong(c);return}}
   const weakest=foes.reduce((a,b)=>a.hp<=b.hp?a:b);
   const tgt=CLASS_ROLE[ck]==='tank'?(foes.find(m=>m.boss)||foes[0]):weakest;
-  const hurtAlly=G.party.filter(m=>m.down||m.hp/m.maxhp<.4).sort((a,b)=>a.hp/a.maxhp-b.hp/b.maxhp)[0];
+  const hurtAlly=G.party.filter(m=>m.down||m.hp/m.maxhp<.5).sort((a,b)=>a.hp/a.maxhp-b.hp/b.maxhp)[0];
   const mod=s=>c.stats[s];
   switch(ck){
     case 'cleric':
-      if(hurtAlly&&c.charges>0){c.charges--;const h=roll(1,8,mod('wis')+Math.floor(G.lvl/2)),was=hurtAlly.down;hurtAlly.down=false;hurtAlly.hp=Math.min(hurtAlly.maxhp,hurtAlly.hp+h);
-        log(`${c.name} speaks a word of healing over ${hurtAlly.hero?'you':hurtAlly.name}. ${was?(hurtAlly.hero?'You':hurtAlly.name)+' get back up! ':''}+${h} HP.`,'heal','1d8'+sgn(mod('wis')+Math.floor(G.lvl/2)));return}
+      if(hurtAlly&&c.charges>0){compHeal(c,hurtAlly);return}
       break;
     case 'bard':
-      if(c.charges>0&&(G.party.filter(m=>m.down||m.hp/m.maxhp<.5).length>=2||(hurtAlly&&hurtAlly.down))){c.charges--;
-        for(const m of G.party){if(m.down&&m!==c){m.down=false;m.hp=0}if(!m.down)m.hp=Math.min(m.maxhp,m.hp+roll(1,6,mod('cha')))}
-        log(`${c.name} sings a battle hymn. Everyone feels it in their chest and fights on. (+1d6${sgn(mod('cha'))} HP each)`,'heal');return}
+      if(c.charges>0&&(G.party.filter(m=>m.down||m.hp/m.maxhp<.5).length>=2||(hurtAlly&&hurtAlly.down))){compSong(c);return}
       break;
     case 'druid':
       if(c.charges>0&&!c.temp){c.charges--;c.temp=10+2*G.lvl;log(`${c.name}\u2019s bones crack and lengthen. Where they stood, a cave bear rears up with ${c.temp} temporary HP.`,'magic');return}
@@ -1819,6 +1829,11 @@ function buildChoices(){
     if(h.cls==='warlock')for(const m of r.mons)add(`Eldritch Blast at ${theM(m)}`,()=>blastAt(m),{cmds:['blast','eldritch blast','blast '+m.name],sub:`${G.lvl>=5?'2 beams':'1 beam'} of 1d10${sgn(h.stats.cha)} force${m.hexed?' · hexed':''}`,kind:'fight',combat:true});
     if(G.pack.potion>0){if(h.hp<h.maxhp)add('Drink a Healing Draught',()=>drink(),{cmds:['drink','potion','quaff','heal'],sub:`${G.pack.potion} in your pack`,combat:true});
       for(const t of comps().filter(t=>t.down))add(`Give a draught to ${t.name}`,()=>drink(t),{cmds:['revive '+t.name.toLowerCase(),'give draught '+t.name.toLowerCase()],sub:'Get them back on their feet',combat:true})}
+    for(const c of comps().filter(isHealer)){
+      if(c.plan){add(`Cancel ${c.name}\u2019s orders`,()=>{c.plan=null;log(`${c.name} will choose for themself.`,'sys')},{sub:'Let them decide on their turn',echo:false});continue}
+      if(ckOf(c)==='cleric')for(const t of healTargets)add(`Ask ${c.name} to heal ${t.hero?'you':t===c?'themself':t.name}`,()=>{c.plan={heal:t.id};log(`\u201cOn it.\u201d ${c.name} will heal ${t.hero?'you':t===c?'themself':t.name} on their turn.`,'ally')},{cmds:['heal '+t.name.toLowerCase()],sub:`${t.down?'Fallen':t.hp+'/'+t.maxhp+' HP'} · free order, you still act · ${c.charges} left`,kind:'prime'});
+      if(ckOf(c)==='bard'&&healTargets.length)add(`Ask ${c.name} to sing Song of Courage`,()=>{c.plan={song:true};log(`${c.name} takes a breath. They will sing on their turn.`,'ally')},{cmds:['sing','song'],sub:`Heals everyone · free order, you still act · ${c.charges} left`,kind:'prime'});
+    }
     if(G.pack.fire>0)add('Read the Scroll of Cinders',readCinders,{cmds:['read cinders','cinders','fire','burn'],sub:'3d6 fire to every foe here',combat:true});
     const fallen=comps().filter(t=>t.down).length;
     add('Flee',()=>{if(!flee())round()},{cmds:['flee','run','escape','retreat'],sub:fallen?'Fallen allies will be left behind!':'Run back the way you came'});
@@ -1886,6 +1901,10 @@ function buildChoices(){
     if(r.stairs)add(chap().stairs==='up'?'Climb the stairs':'Descend the stairs',descend,{cmds:['descend','down','stairs','go down','d','climb','up','go up'],sub:`To floor ${G.depth+1}. Long rest first: full HP and abilities.`,kind:'prime'});
     if(!G.restUsed&&G.party.some(m=>m.hp<m.maxhp))add('Take a short rest',rest,{cmds:['rest','sleep','short rest','camp'],sub:`Once per floor. ${h.cls==='fighter'?'Heals everyone to full':'Heals everyone by half'}, if nothing finds you`});
     if(h.charges>0&&h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${h.charges} left`});
+    for(const c of comps().filter(isHealer)){
+      if(ckOf(c)==='cleric')for(const t of healTargets)add(`Ask ${c.name} to heal ${t.hero?'you':t===c?'themself':t.name}`,()=>compHeal(c,t),{cmds:['heal '+t.name.toLowerCase()],sub:`${t.down?'Fallen':t.hp+'/'+t.maxhp+' HP'} · 1d8${sgn(c.stats.wis+Math.floor(G.lvl/2))} · ${c.charges} left this floor`});
+      if(ckOf(c)==='bard'&&healTargets.length)add(`Ask ${c.name} to sing Song of Courage`,()=>compSong(c),{cmds:['sing','song'],sub:`Heals everyone 1d6${sgn(c.stats.cha)} · ${c.charges} left this floor`});
+    }
     if(h.charges>0&&h.cls==='cleric')for(const t of healTargets)add(`Healing Word on ${t.hero?'yourself':t.name}`,()=>useAbility(t),{cmds:['heal '+t.name.toLowerCase()],sub:`${t.hp}/${t.maxhp} HP. ${h.charges} left`});
     if(G.pack.potion>0&&h.hp<h.maxhp)add('Drink a Healing Draught',()=>drink(),{cmds:['drink','potion','quaff','heal'],sub:`${G.pack.potion} in your pack`});
     if(h.charges>0&&h.cls==='bard'&&G.party.some(m=>m.hp<m.maxhp))add('Sing the Song of Courage',()=>useAbility(),{cmds:['sing','song','ability'],sub:`Heal everyone, +1 to hit this floor. ${h.charges} left`});
