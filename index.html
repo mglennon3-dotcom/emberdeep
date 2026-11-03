@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 17</p>
+  <p class="build">Emberdeep · build 18</p>
 </div>
 
 <script>
@@ -373,7 +373,7 @@ const BOSS={k:'king',name:'Hollow King',hp:[9,10,18],ac:16,hit:8,dmg:[2,8,4],xp:
 
 /* ---------- items ---------- */
 const ITEMS={
-  potion:{name:'Healing Draught',a:'a',w:34},
+  potion:{name:'Healing Draught',a:'a',w:12},
   gold:{name:'gold',w:26},
   fire:{name:'Scroll of Cinders',a:'a',w:10},
   map:{name:'Scroll of Far Sight',a:'a',w:8},
@@ -621,11 +621,12 @@ function scene(title,eyebrow,paras){G.log.push({t:'scene',title,eyebrow,paras})}
 function calcMax(m){const c=m.stats.con;return m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)}
 function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)}
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
+function groupSize(mult=1){const x=G.party.length*diff().perMember*mult;let n=Math.floor(x)+(Math.random()<x%1?1:0);if(Math.random()<.3)n+=pick([-1,1]);return Math.max(1,n)}
 const DIFFS=[
-  {name:'Story',hp:.8,hit:-1,dmg:-1,extra:0,kHit:0,kDmg:0,kHp:0,heroW:1,multi:0,bossMulti:0,focus:0},
-  {name:'Normal',hp:1,hit:0,dmg:0,extra:0,kHit:.2,kDmg:.3,kHp:.04,heroW:2,multi:0,bossMulti:0,focus:.15},
-  {name:'Hard',hp:1.05,hit:0,dmg:0,extra:.2,kHit:.3,kDmg:.5,kHp:.06,heroW:2.5,multi:5,bossMulti:1,focus:.4},
-  {name:'Deadly',hp:1.2,hit:1,dmg:1,extra:.4,kHit:.45,kDmg:.8,kHp:.08,heroW:3,multi:3,bossMulti:1,focus:.55},
+  {name:'Story',hp:.8,hit:-1,dmg:-1,extra:0,kHit:0,kDmg:0,kHp:0,heroW:1,focus:0,perMember:.5},
+  {name:'Normal',hp:1,hit:0,dmg:0,extra:0,kHit:.2,kDmg:.3,kHp:.04,heroW:2,focus:.15,perMember:.75},
+  {name:'Hard',hp:1.05,hit:0,dmg:0,extra:.2,kHit:.3,kDmg:.5,kHp:.06,heroW:2.5,focus:.4,perMember:1},
+  {name:'Deadly',hp:1.2,hit:1,dmg:1,extra:.4,kHit:.45,kDmg:.8,kHp:.08,heroW:3,focus:.55,perMember:1.25},
 ];
 const diff=()=>DIFFS[G&&G.diff!=null?G.diff:1];
 const monHit=m=>m.hit+diff().hit+Math.floor((G.lvl-1)*diff().kHit);
@@ -703,7 +704,7 @@ function turnHostile(c){
 /* ---------- events (branching, roll-dependent encounters) ---------- */
 const E={
   fight(keys,after=null,{surprise=false}={}){
-    const r=room(),extra=comps().length>=3?2:comps().length>=2?1:0,t=monTable();keys=keys.slice();
+    const r=room(),extra=Math.max(0,groupSize()-keys.length),t=monTable();keys=keys.slice();
     for(let i=0;i<extra;i++)keys.push(pick(t).k);
     for(const k of keys){const t0=MONK[k],m=makeMon(t0);m.aware=!surprise;
       const gap=chap().mons.includes(t0)?t0.min-G.depth:0;
@@ -883,13 +884,13 @@ const EVENTS={
 
   merchant:{ch:'any',min:1,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden'].filter(id=>!owns(id)))||null},nodes:{
     start:{t:ev=>`A skeleton in a merchant’s velvet hat has set up a stall on a coffin lid. “Customers! Living ones! Everything must go.”${ev.stock?` In pride of place lies ${WEAPONS[ev.stock].name}: ${WEAPONS[ev.stock].lore}`:''}`,o:[
-      {l:'Buy a Healing Draught',sub:'20 gold',if:()=>G.gold>=20,go:'potion'},
+      {l:'Buy a Healing Draught',sub:'40 gold',if:()=>G.gold>=40,go:'potion'},
       {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'scroll'},
       {l:ev=>`Buy ${WEAPONS[ev.stock].name}`,sub:'90 gold',if:ev=>ev.stock&&G.gold>=90,go:'weapon'},
       {l:'Haggle for a discount on the weapon',sub:'Pay 50 if it works',if:ev=>ev.stock&&G.gold>=50&&!ev.haggled,check:['cha',14],ok:'deal',no:'nodeal'},
       {l:'Try to steal the weapon',if:ev=>ev.stock,check:['dex',15],ok:'stole',no:'caught'},
       {l:'Leave the stall',go:'leave'}]},
-    potion:{t:'“A fine choice!”',fx:()=>{E.gold(-20);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'start'},
+    potion:{t:'“A fine choice!”',fx:()=>{E.gold(-40);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'start'},
     scroll:{t:'“Handle it carefully.”',fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'start'},
     weapon:{t:'“It was a pleasure, truly.”',fx:()=>{E.gold(-90);E.give(G.ev.stock);G.ev.stock=null},next:'start'},
     deal:{t:'“You drive a hard bargain for someone with skin.”',fx:()=>{E.gold(-50);E.give(G.ev.stock);G.ev.stock=null},next:'start'},
@@ -1123,11 +1124,11 @@ Object.assign(EVENTS,{
       {l:'Sort out your gear',if:()=>G.pack.weapons.length>0,sub:'Equip weapons and hand them out',go:'gear'},
       {l:()=>`Set out for ${chap().name}`,sub:()=>chap().stairs==='up'?'A long road north to the spire':'A cold road to the lake at Mirelight',go:'leave'}]},
     market:{t:'The market stalls are open late for heroes.',o:[
-      {l:'Buy a Healing Draught',sub:'20 gold',if:()=>G.gold>=20,go:'buyp'},
+      {l:'Buy a Healing Draught',sub:'40 gold',if:()=>G.gold>=40,go:'buyp'},
       {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'buyf'},
       {l:'Buy a Scroll of Far Sight',sub:'25 gold',if:()=>G.gold>=25,go:'buym'},
       {l:'Back to the tavern',go:'start'}]},
-    buyp:{fx:()=>{E.gold(-20);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'market'},
+    buyp:{fx:()=>{E.gold(-40);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'market'},
     buyf:{fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'market'},
     buym:{fx:()=>{E.gold(-25);G.pack.map++;log('You buy a Scroll of Far Sight.','loot')},next:'market'},
     hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},fx:ev=>{for(const id of ev.offers)logCard(previewComp(id),'Looking for work')},o:[
@@ -1274,8 +1275,8 @@ function genFloor(){
   const table=monTable(),nComp=comps().length;
   for(const r of list){
     if(r===start)continue;
-    if(r.throne){const b=makeMon(chap().boss);b.maxhp+=nComp*(10+(G.chapter||0)*5);b.hp=b.maxhp;r.mons.push(b);for(let i=0;i<1+Math.ceil(nComp/2);i++)r.mons.push(makeMon(MONK[pick(chap().escort)]));retag(r);continue}
-    if(Math.random()<.58+nComp*.06){let n=1+((d>=3&&Math.random()<.35)?1:0);for(let i=0;i<nComp;i++)if(Math.random()<.55)n++;if(d>=2&&Math.random()<diff().extra)n++;n=Math.min(n,1+nComp+(d>=4?1:0)+(diff().extra&&d>=2?1:0));const t=pick(table);for(let i=0;i<n;i++)r.mons.push(makeMon(Math.random()<.7?t:pick(table)));retag(r)}
+    if(r.throne){const b=makeMon(chap().boss);b.maxhp+=nComp*(10+(G.chapter||0)*5);b.hp=b.maxhp;r.mons.push(b);for(let i=0;i<Math.max(1,groupSize()-1);i++)r.mons.push(makeMon(MONK[pick(chap().escort)]));retag(r);continue}
+    if(Math.random()<.58+nComp*.06){let n=groupSize()+(d>=4&&Math.random()<.3?1:0);n=Math.min(n,G.party.length+2);const t=pick(table);for(let i=0;i<n;i++)r.mons.push(makeMon(Math.random()<.7?t:pick(table)));retag(r)}
     if(Math.random()<.28)r.items.push(newItem(pickItemKey()));
     if(Math.random()<.25){const k=pick(Object.keys(FEATURES));r.feature={k,used:false,trap:k==='chest'&&Math.random()<.4,checked:false}}
     if(Math.random()<.3)r.hidden=newItem(pickItemKey());
@@ -1284,7 +1285,6 @@ function genFloor(){
   const evIds=pickEvents();
   const spots=shuffle(list.filter(r=>r!==start&&!r.stairs&&!r.throne));
   evIds.forEach((id,i)=>{const r=spots[i];if(!r)return;r.event=id;r.mons=[];r.feature=null});
-  if(Math.random()<.5)start.items.push(newItem('potion'));
   G.cur=key(2,2);G.prev=null;G.restUsed=false;G.farSight=false;G.ev=null;G.bless=false;G.fighting=false;
   const h=H();h.charges=maxCharges();h.ward=h.cls==='wizard';h.temp=0;h.rage=0;
   for(const c of comps()){c.charges=CLASSES[ckOf(c)].abil.charges+(G.lvl>=5?1:0);c.temp=0;c.rage=0}
@@ -1357,7 +1357,7 @@ function descend(){
 }
 function wander(chance){
   if(Math.random()>=chance)return false;
-  const r=room(),n=1+Math.floor(comps().length/2)+(comps().length&&Math.random()<.5?1:0),t=pick(monTable()),ms=[];
+  const r=room(),n=Math.max(1,groupSize(.7)),t=pick(monTable()),ms=[];
   for(let i=0;i<n;i++){const m=makeMon(Math.random()<.7?t:pick(monTable()));m.aware=true;r.mons.push(m);ms.push(m)}retag(r);G.fighting=true;
   log(n===1?`Footsteps. ${cap(theM(ms[0]))} wanders in from the passage and sees you!`:`Footsteps, lots of them. ${cap(listJoin(ms.map(theM)))} pour in from the passage!`,'threat');
   return true;
@@ -1440,8 +1440,7 @@ function monstersAct(){
   for(const m of room().mons.slice()){
     if(G.over)return;if(!m.aware)continue;
     if(m.slow){m.tick^=1;if(m.tick){log(`${cap(theM(m))} gathers itself slowly.`,'sys');continue}}
-    const n=1+(diff().multi&&G.lvl>=diff().multi&&!m.slow?1:0)+(m.boss?diff().bossMulti:0);
-    for(let i=0;i<n;i++){if(G.over||!room().mons.includes(m))break;monAttack(m)}
+    monAttack(m);
   }
 }
 function spellBolt(c,tgt,stat,name='Fire Bolt',type='fire'){
@@ -1665,7 +1664,7 @@ function search(){
   else{
     const x=Math.random();
     if(x<.4){const it={k:'gold',amt:roll(2,6,G.depth*2)};r.items.push(it);log(pick([`Wedged in a crack in the floor you find ${itemName(it)}.`,`Inside a rotten boot in the corner: ${itemName(it)}.`,`Someone hid ${itemName(it)} under a loose flagstone and never came back for it.`]),'loot')}
-    else if(x<.6){const it=newItem('potion');r.items.push(it);log(`Tucked behind a fallen beam you find ${itemName(it)}, still sealed.`,'loot')}
+    else if(x<.48){const it=newItem('potion');r.items.push(it);log(`Tucked behind a fallen beam you find ${itemName(it)}, still sealed.`,'loot')}
     else if(x<.7){const it=newItem(Math.random()<.5?'fire':'map');r.items.push(it);log(`Rolled up inside a hollow candlestick: ${itemName(it)}.`,'loot')}
     else scout();
   }
@@ -1717,7 +1716,7 @@ function feature(act){
     f.used=true;
     if(f.trap){if(check('dex',12+Math.floor(G.depth/2),'Dexterity save'))log(`A needle snaps out of the lock. You jerk your hand back just in time.`,'miss');
       else{log(`A needle snaps out of the lock and stabs your hand. Poison burns up your arm.`,'hurt');E.dmg(2,6,G.depth,'a poisoned needle');if(G.over)return}}
-    const loot=[{k:'gold',amt:roll(3,6,G.depth*5)},newItem(Math.random()<.5?'potion':pickItemKey())];r.items.push(...loot);log(`The lid creaks open. Inside: ${listJoin(loot.map(itemName))}.`,'loot');mood({pip:1});
+    const loot=[{k:'gold',amt:roll(3,6,G.depth*5)},newItem(Math.random()<.15?'potion':pickItemKey())];r.items.push(...loot);log(`The lid creaks open. Inside: ${listJoin(loot.map(itemName))}.`,'loot');mood({pip:1});
   }else if(act==='fountain'){
     f.used=true;const x=Math.random();
     if(x<.6){for(const m of living()){m.hp=Math.min(m.maxhp,m.hp+roll(2,6))}log(`The water is cold and sweet. Everyone who drinks recovers 2d6 HP.`,'heal')}
@@ -1935,7 +1934,7 @@ function showTitle(){
 function start(cls,name){
   const h=makeHero(cls,name);
   let pref=1;try{const v=localStorage.getItem('emberdeep-difficulty');if(v!=null)pref=+v}catch(e){}
-  G={diff:pref,depth:1,lvl:1,xp:0,turn:0,log:[],over:null,party:[h],pack:{potion:2,fire:0,map:0,weapons:[]},gold:0,kills:0,flags:{},done:[],rooms:{},cur:null,prev:null,restUsed:false,farSight:false,theme:'',ev:null,menu:null,bless:false,fighting:false};
+  G={diff:pref,depth:1,lvl:1,xp:0,turn:0,log:[],over:null,party:[h],pack:{potion:1,fire:0,map:0,weapons:[]},gold:0,kills:0,flags:{},done:[],rooms:{},cur:null,prev:null,restUsed:false,farSight:false,theme:'',ev:null,menu:null,bless:false,fighting:false};
   h.maxhp=calcMax(h);h.hp=h.maxhp;
   genFloor();
   log(`${name} lights a torch, checks their ${wname(h.weapon)}, and starts down the stairs alone.`,'sys');
