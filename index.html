@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 23</p>
+  <p class="build">Emberdeep · build 24</p>
 </div>
 
 <script>
@@ -830,12 +830,17 @@ const EVENTS={
     joined:{t:()=>`Maren ${after('maren')}. “Maren, of the Thornwood. I owe you, and I pay what I owe.”`,end:true},
     leave:{t:'You keep to the shadows and leave her to it.',fx:()=>{E.flag('left_maren');E.mood({brannoc:-1,ysolde:-1})},end:true}}},
 
-  witch:{min:1,max:7,recruit:true,title:'Tea for two',nodes:{
+  witch:{min:1,max:7,recruit:true,title:'Tea for two',init:ev=>{ev.r=rnd(RIDDLES.length);ev.order=shuffle([0,1,2])},nodes:{
     start:{t:()=>`In the middle of a crypt sits a small table set for two. An old woman is pouring tea into chipped cups. “Sit, sit. I am Tessaly, and I have been bored to death down here, and I do mean that. Answer me a riddle and I’ll come along and ${offer('tessaly')}.”`,o:[
       {l:'Sit and hear the riddle',go:'riddle'},{l:'Decline politely',go:'decline'},{l:'Attack her',go:'attack'}]},
-    riddle:{t:'“What has roots that nobody sees, is taller than trees; up, up it goes, and yet never grows?”',o:[
-      {l:'“A mountain.”',go:'right'},{l:'“A tree.”',go:'wrong'},{l:'“A shadow.”',go:'wrong'},{l:'Think it over carefully',check:['int',13],ok:'think',no:'wrong'}]},
-    think:{t:'Roots no one sees. Taller than trees. You smile. “A mountain.”',next:'right'},
+    riddle:{t:ev=>`\u201c${riddle(ev).q}\u201d`,o:[
+      {l:ev=>`\u201c${riddleOpt(ev,0)}.\u201d`,go:'pick0'},{l:ev=>`\u201c${riddleOpt(ev,1)}.\u201d`,go:'pick1'},{l:ev=>`\u201c${riddleOpt(ev,2)}.\u201d`,go:'pick2'},
+      {l:'Think it over carefully',check:['int',13],ok:'think',no:'wrong'},
+      {l:'Ask for a hint',if:ev=>!ev.hinted,check:['wis',11],ok:'hint',no:'nohint'}]},
+    pick0:{fx:ev=>evGo(riddlePick(ev,0))},pick1:{fx:ev=>evGo(riddlePick(ev,1))},pick2:{fx:ev=>evGo(riddlePick(ev,2))},
+    hint:{t:ev=>`She taps the table. \u201c${riddle(ev).hint}\u201d`,fx:ev=>{ev.hinted=true},next:'riddle'},
+    nohint:{t:'\u201cHints? Where would be the fun in that?\u201d',fx:ev=>{ev.hinted=true},next:'riddle'},
+    think:{t:ev=>`You turn it over in your head until it clicks. You smile. \u201c${cap(riddle(ev).a)}.\u201d`,next:'right'},
     right:{t:'She claps. “Finally, someone with a brain.” She drains her tea and stands, and her shadow stands up a moment after she does.',fx:()=>E.recruit('tessaly',6),end:true},
     wrong:{t:'“Wrong,” she says sadly. “Still, you sat down, which is more than most.” She gives you a scroll and vanishes in a flutter of moths.',fx:()=>E.item('fire'),end:true},
     decline:{t:'“Your loss,” she says, and goes back to her tea.',end:true},
@@ -1215,6 +1220,21 @@ function ending(kind){
   log(`The end. ${H().name} the ${CLASSES[H().cls].name.toLowerCase()} will be remembered as ${title}.`,'crit');
   endStats();
 }
+const RIDDLES=[
+  {q:'The more of me you take, the more of me you leave behind. What am I?',a:'footsteps',w:['years','breaths'],hint:'You are making them right now, walking through my crypt.'},
+  {q:'I have cities but no houses, forests but no trees, and rivers but no water. What am I?',a:'a map',w:['a painting','a dream'],hint:'You would want one, down here.'},
+  {q:'The one who makes it sells it. The one who buys it never uses it. The one who uses it never sees it. What is it?',a:'a coffin',w:['a gift','a will'],hint:'Look around you, dearie. This is a crypt.'},
+  {q:'I am always hungry and must always be fed. The finger I touch will soon turn red. What am I?',a:'fire',w:['a wolf','a blade'],hint:'You are holding some of it.'},
+  {q:'What has a neck but no head, and wears a cap but has no hair?',a:'a bottle',w:['a candle','a well'],hint:'You will find plenty of them in any cellar.'},
+  {q:'What has a head and a tail, but no body?',a:'a coin',w:['a comet','a snake'],hint:'You will pay me with one, if you lose.'},
+  {q:'What can fill a whole room but takes up no space at all?',a:'light',w:['smoke','sound'],hint:'Your torch is doing it right now.'},
+  {q:'What belongs to you, but other people use it far more than you do?',a:'your name',w:['your shadow','your coin'],hint:'I asked you for it when you sat down.'},
+  {q:'Speak my name, and I am gone. What am I?',a:'silence',w:['a secret','a ghost'],hint:'There is a great deal of it in a crypt.'},
+  {q:'What has one eye but cannot see?',a:'a needle',w:['a storm','a cyclops'],hint:'I use one to mend my shawl.'},
+];
+const riddle=ev=>RIDDLES[ev.r??0];
+function riddleOpt(ev,i){const R=riddle(ev),opts=[R.a,...R.w],o=ev.order||[0,1,2];return cap(opts[o[i]])}
+function riddlePick(ev,i){const o=ev.order||[0,1,2];return o[i]===0?'right':'wrong'}
 const payoff=()=>20+G.depth*10;
 function leaveParty(id){const c=G.party.find(m=>m.id===id);if(!c)return;G.party=G.party.filter(m=>m!==c);G.flags['left_party_'+id]=true}
 function processQueue(){
