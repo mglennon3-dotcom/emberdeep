@@ -258,19 +258,36 @@ const COMPS={
   gruk:{name:'Gruk',title:'orc deserter',cls:'Barbarian',role:'tank',hd:12,ac:14,stats:{str:4,dex:1,con:3,int:-1,wis:0,cha:-1},weapon:'battleaxe',col:'#a8b066',blurb:'Repaying a debt. Hits like a falling wall.'},
 };
 
+const COMP_BUILDS={
+  brannoc:{classes:['fighter','barbarian','paladin','cleric'],species:'dwarf',mods:{con:1},ac:1},
+  ysolde:{classes:['cleric','paladin','bard','druid'],species:'human',mods:{cha:1}},
+  pip:{classes:['rogue','warlock','sorcerer','ranger'],species:'kobold',mods:{dex:1,str:-1}},
+  maren:{classes:['ranger','druid','rogue','monk'],species:'wood elf',mods:{dex:1}},
+  tessaly:{classes:['wizard','warlock','druid','sorcerer'],species:'human',mods:{wis:1}},
+  corvin:{classes:['fighter','rogue','bard','barbarian'],species:'human',mods:{str:1}},
+  gruk:{classes:['barbarian','fighter','monk','warlock'],species:'orc',mods:{str:1,con:1}},
+  nell:{classes:['cleric','monk','bard','paladin'],species:'human',mods:{wis:1}},
+  oskar:{classes:['rogue','ranger','bard','sorcerer'],species:'human',mods:{con:1}},
+  ilvar:{classes:['paladin','fighter','sorcerer','monk'],species:'human',mods:{str:1},ac:1},
+  zeph:{classes:['barbarian','monk','druid','fighter'],species:'gargoyle',mods:{con:2},ac:2},
+};
+const CLASS_ROLE={barbarian:'tank',fighter:'tank',paladin:'tank',cleric:'healer',bard:'support',druid:'shifter',monk:'striker',ranger:'archer',rogue:'skirmisher',sorcerer:'caster',warlock:'caster',wizard:'caster'};
+function compClass(id){G.compClass=G.compClass||{};if(!G.compClass[id])G.compClass[id]=pick(Object.keys(CLASSES));return G.compClass[id]}
+const ckOf=c=>c.hero?c.cls:(c.ck||({Fighter:'fighter',Cleric:'cleric',Rogue:'rogue',Ranger:'ranger',Wizard:'wizard',Barbarian:'barbarian',Paladin:'paladin',Gargoyle:'barbarian'})[c.cls]||'fighter');
+function migrate(g){for(const c of g.party.slice(1)){if(!c.ck){c.ck=ckOf(c);c.charges=c.heals??2}}}
 const VALUES={nell:'faith',oskar:'gold',ilvar:'honour',zeph:'freedom',brannoc:'honour',ysolde:'mercy',pip:'gold',maren:'nerve',tessaly:'cleverness',corvin:'pay',gruk:'strength'};
 const VALUE_HINT={faith:'likes prayer and kindness, and hates cruelty.',freedom:'hates cages, chains and cruelty to captives.',honour:'hates abandoning the helpless and stealing.',mercy:'hates cruelty and theft, and likes prayer and kindness.',gold:'likes gold and gifts, and hates going without.',nerve:'hates running from a fight.',cleverness:'likes clever solutions.',pay:'expects wages every floor.',strength:'despises cowardice.'};
 const BETRAY={
-  brannoc:'Brannoc stops walking and turns to face you. “I swore a debt to someone better than you. I’ve watched what you do down here, and I’m done paying it.” His hammer is already in his hand.',
-  ysolde:'Ysolde will not meet your eyes. “The Lantern does not light the way for people like you. I’m leaving, and I’m taking what the dead are owed.” Her mace is raised.',
-  maren:'Maren has an arrow on the string, pointed at the floor between you. “You run when it gets hard, and one day you’ll run and leave me to die. Hand over half the gold and I go my own way.”',
+  brannoc:'Brannoc stops walking and turns to face you. “I swore a debt to someone better than you. I’ve watched what you do down here, and I’m done paying it.” His hand is already on his weapon.',
+  ysolde:'Ysolde will not meet your eyes. “The Lantern does not light the way for people like you. I’m leaving, and I’m taking what the dead are owed.” Her weapon is raised.',
+  maren:'Maren\u2019s hand rests on her weapon. “You run when it gets hard, and one day you’ll run and leave me to die. Hand over half the gold and I go my own way.”',
   tessaly:'Tessaly laughs, and her shadow does not. “I’m bored again, dearie. You were fun for a while.” The air around her fingers begins to smoke.',
-  corvin:'Corvin plants his greatsword point-down on the stones. “Contract’s over. You’ve stiffed me once too often. Pay me everything you’ve got, or I take it.”',
+  corvin:'Corvin plants himself in your path. “Contract’s over. You’ve stiffed me once too often. Pay me everything you’ve got, or I take it.”',
   gruk:'Gruk spits on the floor. “My debt is paid. I follow the strong, and you run like a goblin. Fight me, or get out of my way.”',
   pip:'',
-  nell:'Nell is crying, but her mace is steady. \u201cI prayed for someone to save me, and the Lady sent you. I think she made a mistake.\u201d',
+  nell:'Nell is crying, but her hands are steady. \u201cI prayed for someone to save me, and the Lady sent you. I think she made a mistake.\u201d',
   oskar:'Oskar pulls on his brass helmet and steps between you and the door. \u201cBusiness is business. Everything in your pack, and we part friends.\u201d',
-  ilvar:'Ilvar draws his sword and salutes you with it, which is somehow worse. \u201cI have served cowards before. I will not do it twice.\u201d',
+  ilvar:'Ilvar draws his weapon and salutes you with it, which is somehow worse. \u201cI have served cowards before. I will not do it twice.\u201d',
   zeph:'Zeph spreads his stone wings and blocks the way. \u201cYou are no better than the ones who chained me. I will be free of you too.\u201d',
 };
 
@@ -546,7 +563,7 @@ const comps=()=>G.party.slice(1);
 const living=()=>G.party.filter(m=>!m.down);
 const room=()=>G.rooms[G.cur];
 const prof=()=>2+Math.floor((G.lvl-1)/4);
-const ac=m=>m.acBase+(m.acb||0)+(G.party[0].cls==='paladin'&&!G.party[0].down?1:0);
+const ac=m=>m.acBase+(m.acb||0)+(G.party.some(p=>!p.down&&ckOf(p)==='paladin')?1:0);
 const isRogue=()=>H().cls==='rogue';
 const sneakDice=()=>Math.ceil(G.lvl/2);
 const theM=m=>m.traitor?m.name:m.boss?(m.k==='king'?'the Hollow King':m.k==='abbess'?'the Drowned Abbess':'Vharzhul'):`the ${m.tag?m.tag+' ':''}${m.name}`;
@@ -586,8 +603,9 @@ function makeHero(cls,name){
   return{id:'hero',hero:true,name,cls,title:c.name,role:'hero',hd:c.hd,acBase:c.ac,acb:0,stats:{...c.stats},weapon:{id:c.weapon,plus:0},hp:0,maxhp:0,charges:c.abil.charges,ward:false,down:false,bonusHP:0,rage:0,temp:0};
 }
 function makeComp(id){
-  const t=COMPS[id];
-  const m={id,hero:false,name:t.name,title:t.title,cls:t.cls,role:t.role,hd:t.hd,acBase:t.ac,stats:{...t.stats},weapon:{id:t.weapon,plus:0},hp:0,maxhp:0,heals:2,down:false,sneakUsed:false,bonusHP:0,loyalty:6};
+  const t=COMPS[id],ck=compClass(id),C=CLASSES[ck],B=COMP_BUILDS[id],st={...C.stats};
+  for(const [k,v] of Object.entries(B.mods||{}))st[k]=(st[k]||0)+v;
+  const m={id,hero:false,ck,name:t.name,title:t.title,cls:C.name,role:CLASS_ROLE[ck],hd:C.hd,acBase:C.ac+(B.ac||0),stats:st,weapon:{id:C.weapon,plus:0},hp:0,maxhp:0,charges:C.abil.charges,down:false,sneakUsed:false,bonusHP:0,loyalty:6,rage:0,temp:0};
   m.maxhp=calcMax(m);m.hp=m.maxhp;return m;
 }
 function recruit(id,loyalty=6){
@@ -595,8 +613,8 @@ function recruit(id,loyalty=6){
   if(G.party.some(m=>m.id===id))return;
   if(comps().length>=MAX_COMPANIONS){G.evQueue=G.evQueue||[];G.evQueue.push({id:'swap',newId:id,loyalty});log(`${t.name} wants to join you, but your party is full.`,'sys');return}
   const nc=makeComp(id);nc.loyalty=loyalty;G.party.push(nc);G.flags['met_'+id]=true;
-  log(`${t.name} the ${t.title} joins your party.`,'big');
-  log(`${t.blurb} ${t.name} values ${VALUES[id]}: ${VALUE_HINT[VALUES[id]]}`,'sys');
+  log(`${t.name} the ${t.title} joins your party as a ${nc.cls.toLowerCase()}.`,'big');
+  log(`${CLASSES[nc.ck].role} ${t.name} fights with ${CLASSES[nc.ck].abil.name}. ${t.name} values ${VALUES[id]}: ${VALUE_HINT[VALUES[id]]}`,'sys');
 }
 const LOYAL_WORD=l=>l>=8?'Devoted':l>=6?'Loyal':l>=4?'Steady':l>=2?'Uneasy':l>=1?'Wavering':'Hostile';
 function mood(map,quiet=false){
@@ -619,7 +637,7 @@ function triggerBetrayal(c){
 function turnHostile(c){
   G.party=G.party.filter(m=>m!==c);G.flags['traitor_'+c.id]=true;
   const w=wdef(c.weapon),caster=c.role==='caster',st=WEAPONS[c.weapon.id].stat;
-  const mod=caster?c.stats.int:(st==='finesse'||st==='dex')?Math.max(c.stats.dex,c.stats.str):c.stats.str;
+  const mod=caster?c.stats[ckOf(c)==='wizard'?'int':'cha']:(st==='finesse'||st==='dex')?Math.max(c.stats.dex,c.stats.str):c.stats.str;
   const m={k:'traitor',name:c.name,traitor:true,id:c.id,hp:Math.max(c.hp,Math.ceil(c.maxhp*.6)),maxhp:c.maxhp,ac:c.acBase,hit:prof()+mod+w.bonus,
     dmg:caster?[G.lvl>=5?2:1,10,0]:[w.n,w.d,mod+w.bonus],xp:10+G.lvl*6,slow:false,boss:false,aware:true,tick:0,tag:'',scorched:false,weapon:c.weapon};
   room().mons.push(m);G.fighting=true;
@@ -661,7 +679,7 @@ const EVENTS={
     lockok:{t:'The lock opens with a soft click. The dwarf slips his chain, takes up a hammer, and the two of you fall on the goblins before they turn round.',fx:()=>{E.recruit('brannoc',8);E.fight(['goblin',G.depth>1?'goblin':'kobold'],'joined',{surprise:true})}},
     lockno:{t:'Your pick snaps with a loud ping. Both goblins spin round.',fx:()=>E.fight(['goblin',G.depth>1?'goblin':'kobold'],'freed')},
     freed:{t:'The dwarf rubs his raw wrists. “Brannoc Ironhand, smith of Ashmoor. They took me three winters ago. I owe you my life, and I pay my debts.”',o:[
-      {l:'Ask him to join you',sub:'Gain a sturdy front-liner',go:'join'},
+      {l:'Ask him to join you',sub:()=>gainSub('brannoc'),go:'join'},
       {l:'Tell him to get to the surface safely',sub:'He may have something for you',go:'gift'}]},
     join:{fx:()=>{E.recruit('brannoc',8);E.mood({ysolde:1})},t:'“Then I walk at the front,” he says, hefting a goblin hammer. “I’m harder to kill than I look.”',end:true},
     gift:{t:'He presses a runed whetstone into your hand. “Then take this. Keep your edge, and I’ll keep a seat by the fire for you.”',fx:()=>{E.item('whet');E.flag('brannoc_free')},end:true},
@@ -680,7 +698,7 @@ const EVENTS={
     run:{t:'“Now!” you shout. She leaps the ooze and lands beside you, breathless and laughing.',next:'thanks'},
     runno:{t:'She hesitates too long, and the ooze slides between you.',fx:()=>E.fight(['ooze'],'thanks')},
     thanks:{t:'“Ysolde, of the Lantern,” she says. “I came down to bless the dead and found they would rather eat me. Let me walk with you. I can mend what the dark breaks.”',o:[
-      {l:'Welcome her to the party',sub:'Gain a healer',go:'join'},
+      {l:'Welcome her to the party',sub:()=>gainSub('ysolde'),go:'join'},
       {l:'Ask for a blessing instead',sub:'A lasting gift',go:'bless'}]},
     join:{fx:()=>E.recruit('ysolde',7),t:'She tucks her prayer beads into her sleeve and lifts her mace. “Lead on.”',end:true},
     bless:{t:'She lays a hand on your brow and murmurs. Warmth floods through you and your wounds close. +4 maximum HP.',fx:()=>{E.maxhp(4);E.healAll();E.flag('blessed_ysolde')},end:true},
@@ -714,7 +732,7 @@ const EVENTS={
     cut2:{t:'You shout and wave your torch. The ghoul turns, and behind it she twists free, drops, and snatches up her bow.',fx:()=>{E.recruit('maren',7);E.fight(['ghoul'],'joined')}},
     cutno:{t:'It doesn’t work. The ghoul turns its milky eyes on you instead.',fx:()=>E.fight(['ghoul'],'thanks')},
     thanks:{t:'You cut her down. “Maren, of the Thornwood. I tracked that thing down here, and it tracked me back.” She strings her bow. “I hunt better with company.”',o:[
-      {l:'Take her with you',sub:'Gain an archer',go:'join'},
+      {l:'Take her with you',sub:()=>gainSub('maren'),go:'join'},
       {l:'Ask what she found down here',sub:'She carries something strange',go:'gift'}]},
     join:{fx:()=>E.recruit('maren',7),t:'“Good. Keep your torch low, and stay out of my line.”',end:true},
     gift:{t:'She unwraps a spear bound in green copper wire. “Took it from a storm giant’s grave. It bites. You’ll need it more than me.”',fx:()=>E.give('stormcaller'),end:true},
@@ -909,7 +927,7 @@ Object.assign(EVENTS,{
     bell:{t:'You grab the rope and haul. The bell booms through the water, and the thrall flees, clutching its ears.',next:'thanks'},
     swimno:{t:'It goes wrong. The thrall lunges for you instead.',fx:()=>E.fight(['thrall'],'thanks')},
     thanks:{t:'\u201cNell. Sister Nell, I suppose, though I never took my vows.\u201d She wrings out her habit. \u201cThe Lady of the Waters kept me alive for a reason. Maybe it\u2019s you.\u201d',o:[
-      {l:'Ask her to come with you',sub:'Gain a healer',go:'join'},
+      {l:'Ask her to come with you',sub:()=>gainSub('nell'),go:'join'},
       {l:'Send her to the surface with a blessing',sub:'She has something to give',go:'gift'}]},
     join:{t:'\u201cThen I\u2019ll pray for all of us.\u201d',fx:()=>E.recruit('nell',7),end:true},
     gift:{t:'She presses a vial of holy water into your hands and kisses your forehead. Everyone feels steadier. +4 maximum HP.',fx:()=>{E.maxhp(4);G.pack.potion++;E.mood({ysolde:1})},end:true},
@@ -924,7 +942,7 @@ Object.assign(EVENTS,{
     ropeno:{t:'The rope falls short. The eels turn toward you.',fx:()=>E.fight(['eels'],'thanks')},
     wait:{t:'The eels win. When they are gone, you find his diving bag on the floor. It holds gold.',fx:()=>{E.gold(roll(4,10,20));E.mood({ysolde:-2,nell:-2,brannoc:-2,ilvar:-2,oskar:0,pip:1})},end:true},
     thanks:{t:'He pulls off the helmet. \u201cOskar Haddeck, salvage and recovery. Look, I know where the abbey treasury is. You get me there alive, we split it. Deal?\u201d',o:[
-      {l:'Shake on it',sub:'Gain a skirmisher',go:'join'},
+      {l:'Shake on it',sub:()=>gainSub('oskar'),go:'join'},
       {l:'Ask for his finder\u2019s fee up front',go:'fee'}]},
     join:{t:'\u201cPartners, then.\u201d He sketches the floor on the wall with chalk.',fx:()=>{E.recruit('oskar',6);E.farSight()},end:true},
     fee:{t:'He grumbles, but hands over a pouch. \u201cFine. Good luck finding anything without me.\u201d',fx:()=>E.gold(roll(3,10,25)),end:true}}},
@@ -973,7 +991,7 @@ Object.assign(EVENTS,{
     chains:{t:'The chains fall away. The knight stands, cracks his neck, and takes a cultist\u2019s sword. \u201cMy turn.\u201d',fx:()=>{E.recruit('ilvar',8);E.fight(['cultist','cultist'],'joined',{surprise:true})}},
     caught:{t:'A cultist sees you. Knives come out.',fx:()=>E.fight(['cultist','cultist'],'thanks')},
     thanks:{t:'\u201cIlvar, once of the Order of the Scale. I hunted Vharzhul for twenty years. My order is ash now. I would very much like to finish the job.\u201d',o:[
-      {l:'Welcome him',sub:'Gain a heavy front-liner',go:'join'},
+      {l:'Welcome him',sub:()=>gainSub('ilvar'),go:'join'},
       {l:'Ask what he knows about the wyrm',sub:'He has something for you',go:'gift'}]},
     join:{t:'\u201cThen we go up together.\u201d',fx:()=>E.recruit('ilvar',8),end:true},
     gift:{t:'He unbuckles a long, pale glaive. \u201cCut from a dragon\u2019s tooth. My order made it for this. Use it better than I did.\u201d',fx:()=>E.give('wyrmfang'),end:true},
@@ -1056,9 +1074,9 @@ Object.assign(EVENTS,{
     buyf:{fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'market'},
     buym:{fx:()=>{E.gold(-25);G.pack.map++;log('You buy a Scroll of Far Sight.','loot')},next:'market'},
     hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},o:[
-      {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${COMPS[ev.offers[0]].title}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${COMPS[ev.offers[0]].cls} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
-      {l:ev=>ev.offers&&ev.offers[1]?`Hire ${COMPS[ev.offers[1]].name}, ${COMPS[ev.offers[1]].title}`:'',if:ev=>ev.offers&&ev.offers[1]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[1]?`${COMPS[ev.offers[1]].cls} · values ${VALUES[ev.offers[1]]} · 25 gold`:'',go:'h1'},
-      {l:ev=>ev.offers&&ev.offers[2]?`Hire ${COMPS[ev.offers[2]].name}, ${COMPS[ev.offers[2]].title}`:'',if:ev=>ev.offers&&ev.offers[2]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[2]?`${COMPS[ev.offers[2]].cls} · values ${VALUES[ev.offers[2]]} · 25 gold`:'',go:'h2'},
+      {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${COMPS[ev.offers[0]].title}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${CLASSES[compClass(ev.offers[0])].name} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
+      {l:ev=>ev.offers&&ev.offers[1]?`Hire ${COMPS[ev.offers[1]].name}, ${COMPS[ev.offers[1]].title}`:'',if:ev=>ev.offers&&ev.offers[1]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[1]?`${CLASSES[compClass(ev.offers[1])].name} · values ${VALUES[ev.offers[1]]} · 25 gold`:'',go:'h1'},
+      {l:ev=>ev.offers&&ev.offers[2]?`Hire ${COMPS[ev.offers[2]].name}, ${COMPS[ev.offers[2]].title}`:'',if:ev=>ev.offers&&ev.offers[2]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[2]?`${CLASSES[compClass(ev.offers[2])].name} · values ${VALUES[ev.offers[2]]} · 25 gold`:'',go:'h2'},
       {l:'Back to the tavern',go:'start'}]},
     h0:{fx:ev=>hireAt(0,ev),next:'start'},h1:{fx:ev=>hireAt(1,ev),next:'start'},h2:{fx:ev=>hireAt(2,ev),next:'start'},
     part:{t:'Who will you leave behind in Ashmoor?',o:[
@@ -1091,6 +1109,7 @@ Object.assign(EVENTS,{
     give:{t:()=>{const c=mostLoyal();return `You hold out the crowns to ${c.name}. ${({honour:'They kneel, and swear to wear them only to protect.',mercy:'They weep, and promise to use them to heal.',faith:'They pray over them for a night and a day before they will touch them.',gold:'Their eyes go very wide.',nerve:'They laugh, and set them on their head like a hat.',cleverness:'They examine them for a long time, smiling.',pay:'They look at you as if you were mad, and then they take them.',strength:'They lift them high and roar.',freedom:'They take them, and fly away, and are never seen again.'})[VALUES[c.id]]} What ${c.name} does with them is another story.`},fx:()=>ending('given'),end:true},
     hide:{t:()=>`You take the crowns to a place only you know, and leave them in the dark. ${comps().length?'You make your companions swear never to speak of it. ':''}Perhaps one day someone will find them. That will be their adventure, not yours.`,fx:()=>ending('hidden'),end:true}}},
 });
+function gainSub(id){const ck=compClass(id);return `Gain a ${CLASSES[ck].name.toLowerCase()} (${CLASSES[ck].abil.name})`}
 function mostLoyal(){return comps().filter(c=>c.loyalty>0).sort((a,b)=>b.loyalty-a.loyalty)[0]}
 function swapOut(i,ev){const c=comps()[i];if(!c)return;log(`You tell ${c.name} that this is where you part ways. ${c.loyalty>=6?'They take it hard, but they go.':'They shrug and go.'}`,'event');leaveParty(c.id);E.mood({'*':-1},true);recruit(ev.newId,ev.loyalty);endEvent()}
 function hireAt(i,ev){const id=ev.offers[i];if(!id)return;if(G.gold<25){log('You can\u2019t afford to hire anyone right now. It costs 25 gold.','sys');return}E.gold(-25);recruit(id,5);ev.offers.splice(i,1)}
@@ -1178,7 +1197,7 @@ function genFloor(){
   if(Math.random()<.5)start.items.push(newItem('potion'));
   G.cur=key(2,2);G.prev=null;G.restUsed=false;G.farSight=false;G.ev=null;G.bless=false;G.fighting=false;
   const h=H();h.charges=maxCharges();h.ward=h.cls==='wizard';h.temp=0;h.rage=0;
-  for(const c of comps())c.heals=2+(G.lvl>=5?1:0);
+  for(const c of comps()){c.charges=CLASSES[ckOf(c)].abil.charges+(G.lvl>=5?1:0);c.temp=0;c.rage=0}
   G.theme=th.name;
 }
 
@@ -1260,7 +1279,7 @@ function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,bl
   const r=room(),surprise=!tgt.aware;adv=adv||surprise;
   const w=torch?{n:1,d:4,bonus:0,stat:'dex'}:blast?{n:1,d:10,bonus:0}:wdef(att.weapon),sm=torch?att.stats.dex:blast?att.stats.cha:statMod(att,att.weapon);
   const th=prof()+sm+w.bonus+(G.bless?1:0);
-  const {r:rl,t}=d20(adv),tot=rl+th,critOn=w.crit||(att.hero&&isRogue()?19:20),crit=rl>=critOn;
+  const {r:rl,t}=d20(adv),tot=rl+th,critOn=w.crit||(ckOf(att)==='rogue'?19:20),crit=rl>=critOn;
   r.mons.forEach(o=>o.aware=true);G.fighting=true;
   const det=`${t}${sgn(th)}=${tot} vs AC ${tgt.ac}${adv?' · advantage':''}`;
   const wn=torch?'torch':blast?'Eldritch Blast':wname(att.weapon);
@@ -1274,12 +1293,12 @@ function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,bl
   if(torch){tgt.scorched=true}
   if(sneak){dmg+=roll(sneak*mult,6);ex.push(`${sneak*mult}d6 sneak`)}
   if(mark){dmg+=roll(1,6);ex.push('1d6 mark')}
-  if(att.hero&&att.rage>0&&!blast){dmg+=2;ex.push('+2 rage')}
+  if(att.rage>0&&!blast){dmg+=2;ex.push('+2 rage')}
   if(tgt.hexed){dmg+=roll(1,6);ex.push('1d6 hex')}
   if(smite){const sd=(2+(UNDEAD.has(tgt.k)?1:0))*mult;dmg+=roll(sd,8);ex.push(`${sd}d8 radiant smite`);tgt.scorched=true}
   dmg=Math.max(1,dmg);
   const how=crit?'Critical hit! ':'';
-  const verb=blast?`A beam of crackling force from your hand strikes ${theM(tgt)}`:smite?`Your ${wn} blazes with holy light as it strikes ${theM(tgt)}`:torch?`${who(att,'shove','shoves')} the torch into ${theM(tgt)}’s face`:surprise?`${who(att,'catch','catches')} ${theM(tgt)} off guard with ${att.hero?'your':'a'} ${wn}`:`${who(att,'hit','hits')} ${theM(tgt)} with ${att.hero?'your':'a'} ${wn}`;
+  const verb=blast?`A beam of crackling force from your hand strikes ${theM(tgt)}`:smite?`${att.hero?'Your':att.name+'\u2019s'} ${wn} blazes with holy light as it strikes ${theM(tgt)}`:torch?`${who(att,'shove','shoves')} the torch into ${theM(tgt)}’s face`:surprise?`${who(att,'catch','catches')} ${theM(tgt)} off guard with ${att.hero?'your':'a'} ${wn}`:`${who(att,'hit','hits')} ${theM(tgt)} with ${att.hero?'your':'a'} ${wn}`;
   log(`${how}${verb} for ${dmg} damage.${storm?' Lightning cracks down the shaft!':''}${torch?' His flesh sizzles.':''}`,crit?'crit':att.hero?'hit':'ally',`${det} · ${ex.join(' + ')}`);
   if(w.leech){const h=Math.min(Math.floor(dmg/3),att.maxhp-att.hp);if(h>0){att.hp+=h;log(`The Thirsting Blade drinks. ${att.hero?'You heal':att.name+' heals'} ${h}.`,'heal')}}
   hurt(tgt,dmg);
@@ -1315,13 +1334,13 @@ function pickTarget(){
 }
 function monAttack(m){
   const t=pickTarget();if(!t)return;
-  const rl=roll(1,20),tot=rl+m.hit-(t.hero&&t.cls==='monk'?2:0),A=ac(t),crit=rl===20,det=`d20 ${rl}${sgn(m.hit)}=${tot} vs AC ${A}`;
+  const rl=roll(1,20),tot=rl+m.hit-(ckOf(t)==='monk'?2:0),A=ac(t),crit=rl===20,det=`d20 ${rl}${sgn(m.hit)}=${tot} vs AC ${A}`;
   const tn=t.hero?'you':t.name;
   if(rl===1||(!crit&&tot<A)){log(`${cap(theM(m))} attacks ${tn}, but ${t.hero?'you turn':'they turn'} the blow aside.`,'miss',det);return}
   if(t.hero&&t.ward){t.ward=false;log(`${cap(theM(m))} strikes, and your arcane ward flares and absorbs the blow.`,'magic',det);return}
   const [n,d,b]=m.dmg;let dmg=Math.max(1,roll(crit?n*2:n,d,b));
-  if(t.hero&&t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
-  if(t.hero&&t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`Your bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
+  if(t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
+  if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
   t.hp-=dmg;
   log(`${cap(theM(m))} ${crit?'lands a brutal blow on':'hits'} ${tn} for ${dmg} damage${crit?'!':'.'}`,t.hero?'hurt':'threat',`${det} · ${dstr(crit?n*2:n,d,b)}`);
   if(t.hp<=0){t.hp=0;if(t.hero)die(m.boss?'the Hollow King':`a ${m.name}`);else{t.down=true;log(`${t.name} falls!`,'hurt')}}
@@ -1333,23 +1352,68 @@ function monstersAct(){
     monAttack(m);
   }
 }
+function spellBolt(c,tgt,stat,name='Fire Bolt',type='fire'){
+  const w=wdef(c.weapon),th=prof()+c.stats[stat]+(WEAPONS[c.weapon.id].spell?w.bonus:0),{r:rl,t}=d20(!tgt.aware),tot=rl+th;tgt.aware=true;G.fighting=true;
+  if(rl===1||(rl!==20&&tot<tgt.ac)){log(`${c.name}\u2019s ${name} ${type==='fire'?'splashes against the wall beside':'crackles past'} ${theM(tgt)}.`,'miss',`${t}${sgn(th)}=${tot} vs AC ${tgt.ac}`);return}
+  const nd=G.lvl>=5?2:1,mult=rl===20?2:1;let dmg=roll(nd*mult,10);if(WEAPONS[c.weapon.id].spell)dmg+=roll(1,6);
+  if(type==='force')dmg+=c.stats[stat];if(type==='fire')tgt.scorched=true;
+  const ex=[`${nd*mult}d10 ${type}`];if(tgt.hexed){dmg+=roll(1,6);ex.push('1d6 hex')}
+  log(`${c.name} ${type==='fire'?'hurls a Fire Bolt at':'strikes'} ${theM(tgt)}${type==='fire'?'':' with '+name} for ${dmg} damage.`,'ally',`${t}${sgn(th)}=${tot} vs AC ${tgt.ac} · ${ex.join(' + ')}`);
+  hurt(tgt,dmg);
+}
 function compAct(c){
   const foes=room().mons;if(!foes.length)return;
-  if(c.role==='healer'&&c.heals>0){
-    const hurt=G.party.filter(m=>m.down||m.hp/m.maxhp<.4).sort((a,b)=>a.hp/a.maxhp-b.hp/b.maxhp)[0];
-    if(hurt){c.heals--;const h=roll(1,8,c.stats.wis+Math.floor(G.lvl/2)),was=hurt.down;hurt.down=false;hurt.hp=Math.min(hurt.maxhp,hurt.hp+h);
-      log(`${c.name} speaks a word of healing over ${hurt.hero?'you':hurt.name}. ${was?(hurt.hero?'You':hurt.name)+' get back up! ':''}+${h} HP.`,'heal','1d8'+sgn(c.stats.wis+Math.floor(G.lvl/2)));return}
+  const ck=ckOf(c);if(c.charges==null)c.charges=c.heals??2;
+  const weakest=foes.reduce((a,b)=>a.hp<=b.hp?a:b);
+  const tgt=CLASS_ROLE[ck]==='tank'?(foes.find(m=>m.boss)||foes[0]):weakest;
+  const hurtAlly=G.party.filter(m=>m.down||m.hp/m.maxhp<.4).sort((a,b)=>a.hp/a.maxhp-b.hp/b.maxhp)[0];
+  const mod=s=>c.stats[s];
+  switch(ck){
+    case 'cleric':
+      if(hurtAlly&&c.charges>0){c.charges--;const h=roll(1,8,mod('wis')+Math.floor(G.lvl/2)),was=hurtAlly.down;hurtAlly.down=false;hurtAlly.hp=Math.min(hurtAlly.maxhp,hurtAlly.hp+h);
+        log(`${c.name} speaks a word of healing over ${hurtAlly.hero?'you':hurtAlly.name}. ${was?(hurtAlly.hero?'You':hurtAlly.name)+' get back up! ':''}+${h} HP.`,'heal','1d8'+sgn(mod('wis')+Math.floor(G.lvl/2)));return}
+      break;
+    case 'bard':
+      if(c.charges>0&&(G.party.filter(m=>m.down||m.hp/m.maxhp<.5).length>=2||(hurtAlly&&hurtAlly.down))){c.charges--;
+        for(const m of G.party){if(m.down&&m!==c){m.down=false;m.hp=0}if(!m.down)m.hp=Math.min(m.maxhp,m.hp+roll(1,6,mod('cha')))}
+        log(`${c.name} sings a battle hymn. Everyone feels it in their chest and fights on. (+1d6${sgn(mod('cha'))} HP each)`,'heal');return}
+      break;
+    case 'druid':
+      if(c.charges>0&&!c.temp){c.charges--;c.temp=10+2*G.lvl;log(`${c.name}\u2019s bones crack and lengthen. Where they stood, a cave bear rears up with ${c.temp} temporary HP.`,'magic');return}
+      break;
+    case 'barbarian':
+      if(c.charges>0&&!c.rage){c.charges--;c.rage=3;log(`${c.name} roars and flies into a rage!`,'crit')}
+      strike(c,tgt);return;
+    case 'fighter':
+      if(c.charges>0&&c.hp/c.maxhp<.4){c.charges--;const h=roll(1,10,G.lvl),got=Math.min(h,c.maxhp-c.hp);c.hp+=got;log(`${c.name} catches their second wind and recovers ${got} HP.`,'heal',dstr(1,10,G.lvl));return}
+      break;
+    case 'monk':
+      if(c.charges>0&&(tgt.boss||tgt.hp>12)){c.charges--;log(`${c.name} moves in a blur: Flurry of Blows!`,'ally');for(let i=0;i<3;i++){if(!room().mons.includes(tgt))break;strike(c,tgt)}return}
+      break;
+    case 'paladin':
+      if(c.charges>0&&(tgt.boss||UNDEAD.has(tgt.k)||tgt.hp>20)){c.charges--;strike(c,tgt,{smite:true});return}
+      break;
+    case 'ranger':
+      if(c.charges>0&&foes.length>=3){c.charges--;log(`${c.name} looses a volley.`,'ally');for(const m of foes.slice())if(room().mons.includes(m))strike(c,m,{mark:true});return}
+      strike(c,tgt,{mark:true});return;
+    case 'rogue':
+      if(!c.sneakUsed){c.sneakUsed=true;strike(c,tgt,{adv:true,sneak:sneakDice()});return}
+      break;
+    case 'sorcerer':
+      if(c.charges>0&&foes.length>=2){c.charges--;G.fighting=true;log(`${c.name} throws a bead of fire that blooms into a Fireball!`,'crit',`3d6+${G.lvl} each`);
+        for(const m of foes.slice()){m.aware=true;m.scorched=true;const d=roll(3,6,G.lvl);log(`${cap(theM(m))} burns for ${d}.`,'hit');hurt(m,d)}return}
+      spellBolt(c,tgt,'cha');return;
+    case 'warlock':
+      if(c.charges>0&&!tgt.hexed){c.charges--;tgt.hexed=true;log(`${c.name} whispers a curse. A shadow settles on ${theM(tgt)}.`,'magic')}
+      for(let i=0;i<(G.lvl>=5?2:1);i++){const tt=room().mons.includes(tgt)?tgt:room().mons[0];if(!tt)break;spellBolt(c,tt,'cha','Eldritch Blast','force')}
+      return;
+    case 'wizard':
+      if(c.charges>0&&foes.length>=2){c.charges--;const darts=3+Math.floor((G.lvl-1)/3),hits={};G.fighting=true;
+        for(let i=0;i<darts;i++){const al=room().mons;if(!al.length)break;const t2=al.reduce((a,b)=>a.hp<=b.hp?a:b),d=roll(1,4,1);hits[theM(t2)]=(hits[theM(t2)]||0)+d;hurt(t2,d)}
+        log(`${c.name} casts Magic Missile: ${Object.entries(hits).map(([n,d])=>`${d} to ${n}`).join(', ')}.`,'magic',`${darts}×1d4+1`);return}
+      spellBolt(c,tgt,'int');return;
   }
-  const tgt=c.role==='tank'?(foes.find(m=>m.boss)||foes[0]):foes.reduce((a,b)=>a.hp<=b.hp?a:b);
-  if(c.role==='caster'){
-    const w=wdef(c.weapon),th=prof()+c.stats.int+w.bonus,{r:rl,t}=d20(!tgt.aware),tot=rl+th;tgt.aware=true;
-    if(rl===1||(rl!==20&&tot<tgt.ac)){log(`${c.name}’s Fire Bolt splashes against the wall beside ${theM(tgt)}.`,'miss',`${t}${sgn(th)}=${tot} vs AC ${tgt.ac}`);return}
-    const nd=G.lvl>=5?2:1,mult=rl===20?2:1;let dmg=roll(nd*mult,10);if(WEAPONS[c.weapon.id].spell)dmg+=roll(1,6);tgt.scorched=true;
-    log(`${c.name} hurls a Fire Bolt at ${theM(tgt)} for ${dmg} damage.`,'ally',`${t}${sgn(th)}=${tot} vs AC ${tgt.ac} · ${nd*mult}d10 fire`);
-    hurt(tgt,dmg);return;
-  }
-  if(c.role==='skirmisher'&&!c.sneakUsed){c.sneakUsed=true;strike(c,tgt,{adv:true,sneak:2});return}
-  strike(c,tgt,{mark:c.role==='archer'});
+  strike(c,tgt);
 }
 function wyrmBreath(){
   const b=room().mons.find(m=>m.k==='wyrm');if(!b)return;b.tick=(b.tick||0)+1;
@@ -1357,7 +1421,7 @@ function wyrmBreath(){
   if(b.tick%3!==0)return;
   log('Vharzhul breathes. A river of fire pours over the party!','big');
   for(const m of living()){const base=roll(6,6),rl=roll(1,20),sv=rl+m.stats.dex+(m.hero&&EXPERTISE[m.cls]==='dex'?3:0),half=sv>=16;let d=half?Math.floor(base/2):base;
-    if(m.hero&&m.temp>0){const a=Math.min(m.temp,d);m.temp-=a;d-=a}
+    if(m.temp>0){const a=Math.min(m.temp,d);m.temp-=a;d-=a}
     m.hp-=d;log(`${m.hero?'You':m.name} ${half?'dive aside and take':'take'} ${d} fire damage.`,m.hero?'hurt':'threat',`DEX save d20 ${rl}${sgn(sv-rl)}=${sv} vs DC 16 · 6d6${half?' halved':''}`);
     if(m.hp<=0){m.hp=0;if(m.hero){die('Vharzhul\u2019s fire');return}m.down=true;log(`${m.name} falls!`,'hurt')}}
 }
@@ -1377,14 +1441,14 @@ function round(){
     if(!G.over&&r.mons.length&&!G.reinforced&&comps().length>=2&&!r.throne&&Math.random()<.06*comps().length){
       G.reinforced=true;const m=makeMon(pick(monTable()));m.aware=true;r.mons.push(m);retag(r);
       log(`Drawn by the noise of battle, ${theM(m).replace(/^the (first |second |third |fourth |fifth )?/,'a ')} charges in to join the fight!`,'threat');}
-    if(H().rage>0){H().rage--;if(!H().rage)log('Your rage burns out.','sys')}
+    for(const p of G.party)if(p.rage>0){p.rage--;if(!p.rage)log(p.hero?'Your rage burns out.':`${p.name}\u2019s rage burns out.`,'sys')}
   }
   if(!G.over&&!r.mons.length&&G.fighting)afterFight();
 }
 function afterFight(){
-  G.fighting=false;G.reinforced=false;H().rage=0;
+  G.fighting=false;G.reinforced=false;for(const p of G.party)p.rage=0;
   log(`The fighting is over. The room falls quiet.`,'sys');
-  const healer=(H().cls==='cleric')||comps().some(c=>c.role==='healer'&&!c.down);
+  const healer=(H().cls==='cleric')||comps().some(c=>ckOf(c)==='cleric'&&!c.down);
   for(const c of comps().filter(c=>c.down)){
     if(healer){c.down=false;c.hp=1;log(`${c.name} is badly hurt, but a whispered prayer keeps them in the fight. (1 HP)`,'heal');continue}
     const rl=roll(1,20);
@@ -1547,7 +1611,7 @@ function buildChoices(){
   if(!G){
     if(titleState.stage==='class'){
       const s=loadSave();
-      if(s&&s.party)add(`Continue as ${s.party[0].name}`,()=>{G=s;log('You take up your torch again.','sys');describe(room(),`${G.theme} · Floor ${G.depth}`);if(G.ev&&!G.ev.waiting)log(txt(EVENTS[G.ev.id].nodes[G.ev.node].t,G.ev)||'','event')},{cmds:['continue','c'],sub:`Level ${s.lvl}, chapter ${(s.chapter||0)+1}, floor ${s.depth}, party of ${s.party.length}`,kind:'prime',echo:false});
+      if(s&&s.party)add(`Continue as ${s.party[0].name}`,()=>{G=s;migrate(G);log('You take up your torch again.','sys');describe(room(),`${G.theme} · Floor ${G.depth}`);if(G.ev&&!G.ev.waiting)log(txt(EVENTS[G.ev.id].nodes[G.ev.node].t,G.ev)||'','event')},{cmds:['continue','c'],sub:`Level ${s.lvl}, chapter ${(s.chapter||0)+1}, floor ${s.depth}, party of ${s.party.length}`,kind:'prime',echo:false});
       for(const [k,c] of Object.entries(CLASSES))add(c.name,()=>{titleState={stage:'name',cls:k};titleLog.push({t:'p',cls:'event',text:`A ${c.name.toLowerCase()}. ${c.role} What is your name? Pick one, or type your own below.`})},{cmds:[k,'play '+k],sub:`${c.role} HP ${c.hd+c.stats.con+4}, AC ${c.ac}. ${c.abil.name}: ${c.abil.desc}`,kind:'hero',echo:false});
     }else{
       const c=CLASSES[titleState.cls];
@@ -1771,7 +1835,7 @@ function renderSheet(){
   </dl>
   <div class="wpn"><b class="${wd.mythic?'m':''}">${cap(wname(h.weapon))}</b> · ${wdice(h,h.weapon)}${wd.lore?`<br><span style="color:var(--muted);font-size:.8rem">${wd.lore}</span>`:''}</div>
   <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p></div>
-  <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${m.cls} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${m.role==='healer'?` · ${m.heals} heals left`:''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
+  <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
   <div><h3>Pack</h3><ul class="pack">
     <li class="${G.pack.potion?'':'zero'}"><span>Healing Draught</span><span>× ${G.pack.potion}</span></li>
     <li class="${G.pack.fire?'':'zero'}"><span>Scroll of Cinders</span><span>× ${G.pack.fire}</span></li>
@@ -1789,7 +1853,7 @@ $('#cmdform').addEventListener('submit',e=>{e.preventDefault();const i=$('#cmd')
 /* ---------- offline support ---------- */
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
 /* ---------- boot ---------- */
-function boot(data){if(data&&data.G&&data.G.party){G=data.G;render()}else showTitle()}
+function boot(data){if(data&&data.G&&data.G.party){G=data.G;migrate(G);render()}else showTitle()}
 try{window.claude?.hot?.snapshot?.(()=>({G}))}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(boot):boot(window.claude?.hot?.data??{});
 })();
