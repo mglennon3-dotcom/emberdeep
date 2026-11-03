@@ -1606,7 +1606,9 @@ function take(it,silentRoom){
 }
 function search(){
   const r=room();r.searched=true;
-  if(!check('int',12,'Search the room')){log(pick(['You search every corner and find nothing but dust.','You find nothing of use.','You turn over rubble and old rags. Nothing.']),'miss');wander(.12);return}
+  if(!check('int',12,'Search the room')){
+    if(G._last&&G._last.rl===1){fumble();return}
+    log(pick(['You search every corner and find nothing but dust.','You find nothing of use.','You turn over rubble and old rags. Nothing.']),'miss');wander(.12);return}
   const great=G._last&&(G._last.rl===20||G._last.tot>=G._last.target+5);
   if(r.hidden){r.items.push(r.hidden);log(`Behind a loose stone you find ${itemName(r.hidden)}.`,'loot');r.hidden=null}
   else{
@@ -1621,6 +1623,20 @@ function search(){
     log(`A sharp eye pays off. You also find ${itemName(it)}.`,'loot');
   }
   wander(.12);
+}
+function fumble(){
+  const x=Math.random(),h=H();
+  if(x<.4){
+    const t=pick([['You pull at a loose stone and a dart hisses out of the wall','a dart trap'],['You lean on a beam and a block of stone drops from the ceiling','a falling stone'],['You reach into a crack and something sharp and slimy bites deep','a poisoned splinter']]);
+    log(`Natural 1. ${t[0]}.`,'hurt');E.dmg(1,6,G.depth,t[1]);
+  }else if(x<.75){
+    log('Natural 1. You knock over a stack of old pots, and the crash echoes down every corridor.','hurt');
+    if(!wander(1))log('Nothing comes. This time.','sys');
+  }else{
+    const n=Math.min(G.gold,roll(1,10,G.depth*2));
+    if(n>0){G.gold-=n;log(`Natural 1. Your coin pouch snags on a nail and tears. ${n} gold coins roll through a grate in the floor and are gone.`,'hurt')}
+    else{log('Natural 1. You slice your hand on a rusty hook.','hurt');E.dmg(1,4,0,'a rusty hook')}
+  }
 }
 function scout(){
   const r=room(),hints=[];
@@ -1645,7 +1661,7 @@ function rest(){
 }
 function feature(act){
   const h=H(),r=room(),f=r.feature;
-  if(act==='check'){f.checked=true;if(check('int',12,'Check for traps')){if(f.trap){f.trap=false;log(`You find a poisoned needle hidden in the lock and jam it with a splinter.`,'magic')}else log(`You check the lock and hinges carefully. No traps.`,'sys')}else log(`You look the chest over but don’t spot anything.`,'miss')}
+  if(act==='check'){f.checked=true;const okc=check('int',12,'Check for traps');if(!okc&&G._last&&G._last.rl===1&&f.trap){f.trap=false;log('Natural 1. Your fingers brush the lock, and a poisoned needle snaps out into your thumb.','hurt');E.dmg(2,6,G.depth,'a poisoned needle');return}if(okc){if(f.trap){f.trap=false;log(`You find a poisoned needle hidden in the lock and jam it with a splinter.`,'magic')}else log(`You check the lock and hinges carefully. No traps.`,'sys')}else log(`You look the chest over but don’t spot anything.`,'miss')}
   else if(act==='open'){
     f.used=true;
     if(f.trap){if(check('dex',12+Math.floor(G.depth/2),'Dexterity save'))log(`A needle snaps out of the lock. You jerk your hand back just in time.`,'miss');
