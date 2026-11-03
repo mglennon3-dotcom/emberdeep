@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 18</p>
+  <p class="build">Emberdeep · build 19</p>
 </div>
 
 <script>
@@ -199,8 +199,8 @@ const DIRV={n:[0,-1,'north'],e:[1,0,'east'],s:[0,1,'south'],w:[-1,0,'west']};
 const OPP={n:'s',s:'n',e:'w',w:'e'};
 const STATS=['str','dex','con','int','wis','cha'];
 const STATNAME={str:'Strength',dex:'Dexterity',con:'Constitution',int:'Intelligence',wis:'Wisdom',cha:'Charisma'};
-const UNDEAD=new Set(['skeleton','ghoul','wraith','king','thrall','abbess','ashwight']);
-const DRAGONKIN=new Set(['wyvern','wyrm','salamander']);
+const UNDEAD=new Set(['skeleton','ghoul','wraith','wight','king','thrall','abbess','ashwight']);
+const DRAGONKIN=new Set(['wyvern','wyrm','salamander','drake']);
 
 /* ---------- weapons ---------- */
 const WEAPONS={
@@ -321,7 +321,7 @@ function hitRun(id){const ck=compClass(id);return ck==='ranger'?'shoots you in t
 function beside(id){const ck=compClass(id);return ck==='monk'?'His fists are wrapped in old leather.':CASTER.has(ck)?'A spell focus hangs at his belt, humming faintly.':ck==='ranger'?'A longbow leans beside him.':ck==='druid'?'A gnarled club leans beside him.':`A ${cw(id)} leans beside him.`}
 function compTitle(id){const ck=compClass(id),n=CF[ck].noun;return{brannoc:`dwarf ${n}`,ysolde:`${n} of the Lantern`,pip:'kobold turncoat',maren:`${n} of the Thornwood`,tessaly:['wizard','sorcerer','warlock','druid'].includes(ck)?'hedge-witch':`old ${n}`,corvin:`${n} for hire`,gruk:'orc deserter',nell:`novice ${n}`,oskar:'salvage diver',ilvar:'exiled dragon-hunter',zeph:'gargoyle'}[id]||COMPS[id].title}
 const ckOf=c=>c.hero?c.cls:(c.ck||({Fighter:'fighter',Cleric:'cleric',Rogue:'rogue',Ranger:'ranger',Wizard:'wizard',Barbarian:'barbarian',Paladin:'paladin',Gargoyle:'barbarian'})[c.cls]||'fighter');
-function migrate(g){for(const c of g.party.slice(1)){if(!c.ck){c.ck=ckOf(c);c.charges=c.heals??2}}}
+function migrate(g){for(const c of g.party.slice(1)){if(!c.ck){c.ck=ckOf(c);c.charges=c.heals??2}}if(g.xp<XPT[g.lvl-1])g.xp=XPT[g.lvl-1]}
 const VALUES={nell:'faith',oskar:'gold',ilvar:'honour',zeph:'freedom',brannoc:'honour',ysolde:'mercy',pip:'gold',maren:'nerve',tessaly:'cleverness',corvin:'pay',gruk:'strength'};
 const VALUE_HINT={faith:'likes prayer and kindness, and hates cruelty.',freedom:'hates cages, chains and cruelty to captives.',honour:'hates abandoning the helpless and stealing.',mercy:'hates cruelty and theft, and likes prayer and kindness.',gold:'likes gold and gifts, and hates going without.',nerve:'hates running from a fight.',cleverness:'likes clever solutions.',pay:'expects wages every floor.',strength:'despises cowardice.'};
 const BETRAY={
@@ -340,36 +340,44 @@ const BETRAY={
 
 /* ---------- monsters ---------- */
 const MONS=[
-  {k:'rat',name:'giant rat',hp:[2,6,0],ac:12,hit:4,dmg:[1,4,1],xp:3,min:1,max:3,intro:'A giant rat the size of a dog gnaws at something in the corner.'},
-  {k:'kobold',name:'kobold',hp:[2,6,0],ac:12,hit:4,dmg:[1,4,1],xp:4,min:1,max:4,intro:'A kobold rummages through a torn sack, yapping to itself.'},
-  {k:'goblin',name:'goblin',hp:[2,6,0],ac:14,hit:4,dmg:[1,6,1],xp:7,min:1,max:5,intro:'A goblin squats by a small fire, turning a skewer of something you would rather not identify.'},
-  {k:'skeleton',name:'skeleton',hp:[2,8,4],ac:13,hit:4,dmg:[1,6,2],xp:12,min:2,max:7,intro:'A skeleton stands perfectly still in the middle of the room, an old sword in its hand.'},
-  {k:'ooze',name:'grey ooze',hp:[3,8,6],ac:8,hit:4,dmg:[1,8,2],xp:12,min:2,max:6,slow:true,intro:'A grey ooze slides across the floor, dissolving the dust in its path.'},
-  {k:'orc',name:'orc',hp:[2,8,6],ac:13,hit:5,dmg:[1,12,3],xp:18,min:3,max:8,intro:'An orc leans on a notched greataxe, picking its teeth with a bone.'},
-  {k:'ghoul',name:'ghoul',hp:[5,8,0],ac:12,hit:5,dmg:[2,6,2],xp:25,min:4,max:8,intro:'A ghoul crouches over a body, chewing slowly.'},
-  {k:'ogre',name:'ogre',hp:[5,10,8],ac:11,hit:6,dmg:[2,8,4],xp:45,min:5,max:8,slow:true,intro:'An ogre sits slumped against the wall, snoring like a rockslide.'},
-  {k:'wraith',name:'wraith',hp:[6,8,6],ac:13,hit:6,dmg:[3,6,0],xp:55,min:6,max:8,intro:'A wraith drifts above the floor. Your torch gutters in its cold.'},
+  {k:'rat',name:'giant rat',cr:.125,hp:[2,6,0],ac:12,hit:4,dmg:[1,4,2],min:1,max:3,intro:'A giant rat the size of a dog gnaws at something in the corner.'},
+  {k:'kobold',name:'kobold',cr:.125,hp:[2,6,-1],ac:12,hit:4,dmg:[1,4,2],min:1,max:4,intro:'A kobold rummages through a torn sack, yapping to itself.'},
+  {k:'goblin',name:'goblin',cr:.25,hp:[2,6,0],ac:15,hit:4,dmg:[1,6,2],min:1,max:5,intro:'A goblin squats by a small fire, turning a skewer of something you would rather not identify.'},
+  {k:'skeleton',name:'skeleton',cr:.25,hp:[2,8,4],ac:13,hit:4,dmg:[1,6,2],min:2,max:7,intro:'A skeleton stands perfectly still in the middle of the room, an old sword in its hand.'},
+  {k:'ooze',name:'grey ooze',cr:.5,hp:[3,8,9],ac:8,hit:3,dmg:[2,6,1],min:2,max:6,slow:true,intro:'A grey ooze slides across the floor, dissolving the dust in its path.'},
+  {k:'orc',name:'orc',cr:.5,hp:[2,8,6],ac:13,hit:5,dmg:[1,12,3],min:3,max:8,intro:'An orc leans on a notched greataxe, picking its teeth with a bone.'},
+  {k:'hobgoblin',name:'hobgoblin',cr:.5,hp:[2,8,2],ac:18,hit:3,dmg:[1,8,1],min:2,max:8,intro:'A hobgoblin in neat, polished armor stands guard, longsword already drawn.'},
+  {k:'ghoul',name:'ghoul',cr:1,hp:[5,8,0],ac:12,hit:4,dmg:[2,4,2],min:4,max:8,intro:'A ghoul crouches over a body, chewing slowly.'},
+  {k:'bugbear',name:'bugbear',cr:1,hp:[5,8,5],ac:16,hit:4,dmg:[2,8,2],min:3,max:8,intro:'A bugbear lurks in the shadows beside the door, a spiked morningstar resting on its shoulder.'},
+  {k:'direwolf',name:'dire wolf',cr:1,hp:[5,10,10],ac:14,hit:5,dmg:[2,6,3],min:3,max:8,intro:'A dire wolf the size of a pony pads out of the dark, hackles raised.'},
+  {k:'ogre',name:'ogre',cr:2,hp:[7,10,21],ac:11,hit:6,dmg:[2,8,4],min:5,max:8,intro:'An ogre sits slumped against the wall, snoring like a rockslide.'},
+  {k:'owlbear',name:'owlbear',cr:3,hp:[7,10,21],ac:13,hit:7,dmg:[2,8,5],min:5,max:8,intro:'An owlbear tears at a carcass, feathers bristling, and turns its great hooked beak toward your light.'},
+  {k:'minotaur',name:'minotaur',cr:3,hp:[9,10,36],ac:14,hit:6,dmg:[2,12,4],min:5,max:8,intro:'A minotaur paces the room, horns scraping the ceiling, snorting at the smell of you.'},
+  {k:'wight',name:'wight',cr:3,hp:[6,8,18],ac:14,hit:4,dmg:[2,8,2],min:5,max:8,intro:'A wight in rusted mail stands among the dead, eyes burning with cold hate.'},
+  {k:'wraith',name:'wraith',cr:5,hp:[9,8,27],ac:13,hit:6,dmg:[4,8,3],min:6,max:8,intro:'A wraith drifts above the floor. Your torch gutters in its cold.'},
 ];
 const MONS2=[
-  {k:'thrall',name:'drowned thrall',hp:[4,8,6],ac:11,hit:5,dmg:[1,8,3],xp:20,min:1,max:4,intro:'A drowned thrall stands waist-deep in the water, swaying, its eyes milky and wide.'},
-  {k:'eels',name:'eel swarm',hp:[5,8,0],ac:13,hit:6,dmg:[2,6,1],xp:25,min:1,max:4,intro:'The water churns with an eel swarm, a hundred grey bodies knotting and unknotting.'},
-  {k:'coral',name:'coral knight',hp:[6,8,12],ac:17,hit:6,dmg:[1,10,4],xp:45,min:2,max:6,intro:'A coral knight stands guard, its armor grown over with pink and white reef.'},
-  {k:'siren',name:'siren',hp:[5,8,4],ac:12,hit:6,dmg:[2,6,2],xp:40,min:3,max:6,intro:'A siren perches on a broken font, humming a song you almost remember.'},
-  {k:'troll',name:'lake troll',hp:[8,10,16],ac:14,hit:7,dmg:[2,8,5],xp:70,min:4,max:6,intro:'A lake troll crouches in the shallows, weed hanging from its tusks.'},
-  {k:'deeppriest',name:'deep priest',hp:[7,8,7],ac:13,hit:7,dmg:[3,6,2],xp:65,min:4,max:6,intro:'A deep priest in a waterlogged cassock chants to something beneath the floor.'},
+  {k:'thrall',name:'drowned thrall',cr:.5,hp:[4,8,8],ac:11,hit:5,dmg:[1,8,3],min:1,max:4,intro:'A drowned thrall stands waist-deep in the water, swaying, its eyes milky and wide.'},
+  {k:'eels',name:'eel swarm',cr:1,hp:[8,8,0],ac:13,hit:5,dmg:[2,6,1],min:1,max:4,intro:'The water churns with an eel swarm, a hundred grey bodies knotting and unknotting.'},
+  {k:'siren',name:'siren',cr:2,hp:[7,8,7],ac:13,hit:5,dmg:[2,6,3],min:3,max:6,intro:'A siren perches on a broken font, humming a song you almost remember.'},
+  {k:'coral',name:'coral knight',cr:3,hp:[8,8,16],ac:17,hit:6,dmg:[2,8,3],min:2,max:6,intro:'A coral knight stands guard, its armor grown over with pink and white reef.'},
+  {k:'deeppriest',name:'deep priest',cr:4,hp:[10,8,10],ac:13,hit:6,dmg:[3,6,3],min:4,max:6,intro:'A deep priest in a waterlogged cassock chants to something beneath the floor.'},
+  {k:'troll',name:'lake troll',cr:5,hp:[8,10,40],ac:15,hit:7,dmg:[2,8,4],min:4,max:6,intro:'A lake troll crouches in the shallows, weed hanging from its tusks.'},
+  {k:'seaserpent',name:'reef serpent',cr:7,hp:[12,10,36],ac:15,hit:8,dmg:[3,8,5],min:4,max:6,intro:'A reef serpent coils through the drowned arches, longer than the room, its scales the colour of deep water.'},
 ];
 const MONS3=[
-  {k:'cultist',name:'ash cultist',hp:[6,8,6],ac:13,hit:7,dmg:[2,6,3],xp:40,min:1,max:4,intro:'An ash cultist kneels before a brazier, rubbing cinders into their face.'},
-  {k:'gargoyle',name:'gargoyle',hp:[7,8,14],ac:16,hit:7,dmg:[2,6,4],xp:60,min:1,max:5,intro:'A gargoyle crouches on a ledge, so still it might be carved.'},
-  {k:'harpy',name:'harpy',hp:[6,8,6],ac:13,hit:7,dmg:[2,6,3],xp:50,min:2,max:6,intro:'A harpy preens on a rafter, picking at something red.'},
-  {k:'salamander',name:'salamander',hp:[8,10,8],ac:15,hit:8,dmg:[2,8,4],xp:80,min:3,max:6,intro:'A salamander coils around a pillar, its scales glowing like coals.'},
-  {k:'ashwight',name:'ash wight',hp:[8,8,16],ac:15,hit:8,dmg:[2,8,4],xp:90,min:4,max:6,intro:'An ash wight stands among the cinders, a burned soldier who never stopped marching.'},
-  {k:'wyvern',name:'wyvern',hp:[10,10,20],ac:14,hit:8,dmg:[2,10,5],xp:110,min:4,max:6,intro:'A wyvern hunches in the dark, its stinger tail flicking back and forth.'},
+  {k:'harpy',name:'harpy',cr:1,hp:[7,8,0],ac:11,hit:4,dmg:[2,6,1],min:2,max:6,intro:'A harpy preens on a rafter, picking at something red.'},
+  {k:'cultist',name:'ash cultist',cr:2,hp:[6,8,6],ac:13,hit:5,dmg:[2,8,2],min:1,max:4,intro:'An ash cultist kneels before a brazier, rubbing cinders into their face.'},
+  {k:'gargoyle',name:'gargoyle',cr:2,hp:[7,8,21],ac:15,hit:4,dmg:[2,6,2],min:1,max:5,intro:'A gargoyle crouches on a ledge, so still it might be carved.'},
+  {k:'ashwight',name:'ash wight',cr:4,hp:[8,8,24],ac:15,hit:6,dmg:[2,8,4],min:4,max:6,intro:'An ash wight stands among the cinders, a burned soldier who never stopped marching.'},
+  {k:'salamander',name:'salamander',cr:5,hp:[12,10,24],ac:15,hit:7,dmg:[4,6,4],min:3,max:6,intro:'A salamander coils around a pillar, its scales glowing like coals.'},
+  {k:'wyvern',name:'wyvern',cr:6,hp:[13,10,39],ac:13,hit:7,dmg:[3,10,4],min:4,max:6,intro:'A wyvern hunches in the dark, its stinger tail flicking back and forth.'},
+  {k:'drake',name:'young ash drake',cr:10,hp:[17,10,85],ac:18,hit:10,dmg:[2,10,6],min:5,max:6,intro:'A young ash drake lies curled on a bed of cinders. One eye opens, glowing like a forge.'},
 ];
-const BOSS2={k:'abbess',name:'Drowned Abbess',hp:[14,10,30],ac:16,hit:9,dmg:[2,10,5],xp:0,boss:true};
-const BOSS3={k:'wyrm',name:'Vharzhul the Ash Wyrm',hp:[18,12,60],ac:18,hit:11,dmg:[2,10,7],xp:0,boss:true};
+const BOSS2={k:'abbess',name:'Drowned Abbess',cr:9,hp:[16,10,48],ac:16,hit:9,dmg:[3,10,5],boss:true};
+const BOSS3={k:'wyrm',name:'Vharzhul the Ash Wyrm',cr:15,hp:[19,12,133],ac:18,hit:11,dmg:[2,10,7],boss:true};
 const MONK=Object.fromEntries([...MONS,...MONS2,...MONS3].map(m=>[m.k,m]));
-const BOSS={k:'king',name:'Hollow King',hp:[9,10,18],ac:16,hit:8,dmg:[2,8,4],xp:0,boss:true};
+const BOSS={k:'king',name:'Hollow King',cr:7,hp:[12,10,40],ac:17,hit:8,dmg:[2,10,5],boss:true};
 
 /* ---------- items ---------- */
 const ITEMS={
@@ -600,7 +608,34 @@ const chap=()=>CHAPTERS[G.chapter||0];
 const FLOORS=()=>chap().floors;
 const themeFor=d=>chap().themes.find(t=>d<=t.upTo);
 const FEATURES={chest:'An iron-bound chest sits against the far wall.',fountain:'A stone fountain still trickles with clear water.',altar:'A small altar holds a guttering candle and an offering bowl.',bones:'The bones of an earlier adventurer lie in a heap, still wearing a pack.'};
-const XPT=[0,15,45,100,180,290,430,600,820,1100,1500,2000,2600,3300,4100];
+const XPT=[0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000];
+const XP_BY_CR={0.125:25,0.25:50,0.5:100,1:200,2:450,3:700,4:1100,5:1800,6:2300,7:2900,8:3900,9:5000,10:5900,15:13000};
+// Per-character XP thresholds from the 5e Dungeon Master's Guide: [easy, medium, hard, deadly]
+const THRESH=[[25,50,75,100],[50,100,150,200],[75,150,225,400],[125,250,375,500],[250,500,750,1100],[300,600,900,1400],[350,750,1100,1700],[450,900,1400,2100],[550,1100,1600,2400],[600,1200,1900,2800],[800,1600,2400,3600],[1000,2000,3000,4500],[1100,2200,3400,5100],[1250,2500,3800,5700],[1400,2800,4300,6400]];
+const crLabel=cr=>cr===.125?'1/8':cr===.25?'1/4':cr===.5?'1/2':String(cr);
+function encMult(n,size){const steps=[1,1.5,2,2.5,3,4];let i=n<=1?0:n===2?1:n<=6?2:n<=10?3:n<=14?4:5;if(size<3)i++;else if(size>5)i--;return steps[Math.max(0,Math.min(5,i))]}
+function budget(mult=1){return THRESH[Math.min(G.lvl,15)-1][diff().tier]*G.party.length*mult}
+function encounter({mult=1,fixed=[],pool=null,max=null}={}){
+  const size=G.party.length,B=budget(mult),P=pool||chap().mons,xpOf=k=>XP_BY_CR[MONK[k].cr];
+  const adj=ks=>ks.reduce((a,k)=>a+xpOf(k),0)*encMult(ks.length,size);
+  const keys=fixed.slice();if(keys.length&&adj(keys)>=B*.85)return keys;
+  const cap=max||size+2;
+  // pick a main monster whose XP lets roughly one per party member fill the budget
+  const want=(B-(keys.length?adj(keys):0))/Math.max(1,size*encMult(size,size));
+  const ranked=P.filter(m=>XP_BY_CR[m.cr]<=Math.max(want*1.6,XP_BY_CR[P[0].cr])).sort((a,b)=>Math.abs(Math.log(XP_BY_CR[a.cr]/want))-Math.abs(Math.log(XP_BY_CR[b.cr]/want)));
+  const main=pick(ranked.slice(0,3).length?ranked.slice(0,3):[P[0]]);
+  let guard=0;
+  while(keys.length<cap&&guard++<20){
+    const opts=[main,...shuffle(P)].filter(m=>adj([...keys,m.k])<=B*1.15);
+    if(!opts.length)break;
+    keys.push((Math.random()<.7&&opts.includes(main)?main:opts[0]).k);
+    if(adj(keys)>=B*.85)break;
+  }
+  if(!keys.length)keys.push(P.reduce((a,b)=>XP_BY_CR[a.cr]<=XP_BY_CR[b.cr]?a:b).k);
+  return keys;
+}
+function spawn(keys,aware=false){const r=room(),ms=keys.map(k=>{const m=makeMon(MONK[k]);m.aware=aware;r.mons.push(m);return m});retag(r);return ms}
+function milestone(xp,why){const n=Math.round(xp);if(n<=0)return;log(`${why} +${n} XP each.`,'sys');gainXP(n)}
 
 let G=null,titleState={stage:'class',cls:null},titleLog=[],choiceCache=[];
 
@@ -621,19 +656,18 @@ function scene(title,eyebrow,paras){G.log.push({t:'scene',title,eyebrow,paras})}
 function calcMax(m){const c=m.stats.con;return m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)}
 function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)}
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
-function groupSize(mult=1){const x=G.party.length*diff().perMember*mult;let n=Math.floor(x)+(Math.random()<x%1?1:0);if(Math.random()<.3)n+=pick([-1,1]);return Math.max(1,n)}
 const DIFFS=[
-  {name:'Story',hp:.8,hit:-1,dmg:-1,extra:0,kHit:0,kDmg:0,kHp:0,heroW:1,focus:0,perMember:.5},
-  {name:'Normal',hp:1,hit:0,dmg:0,extra:0,kHit:.2,kDmg:.3,kHp:.04,heroW:2,focus:.15,perMember:.75},
-  {name:'Hard',hp:1.05,hit:0,dmg:0,extra:.2,kHit:.3,kDmg:.5,kHp:.06,heroW:2.5,focus:.4,perMember:1},
-  {name:'Deadly',hp:1.2,hit:1,dmg:1,extra:.4,kHit:.45,kDmg:.8,kHp:.08,heroW:3,focus:.55,perMember:1.25},
+  {name:'Story',tier:0,heroW:1.5,focus:0},
+  {name:'Normal',tier:1,heroW:2,focus:.15},
+  {name:'Hard',tier:2,heroW:2.5,focus:.35},
+  {name:'Deadly',tier:3,heroW:3,focus:.5},
 ];
 const diff=()=>DIFFS[G&&G.diff!=null?G.diff:1];
-const monHit=m=>m.hit+diff().hit+Math.floor((G.lvl-1)*diff().kHit);
-const monDmg=()=>diff().dmg+Math.floor((G.lvl-1)*diff().kDmg);
+const monHit=m=>m.hit;
+const monDmg=()=>0;
 function setDiff(i){G.diff=i;try{localStorage.setItem('emberdeep-difficulty',String(i))}catch(e){}log(`Difficulty set to ${DIFFS[i].name}.`,'sys');save();render()}
-function makeMon(t){const tier=G?(G.chapter||0)*8+(G.depth||1):1,lv=G?G.lvl:1,hp=Math.round(roll(...t.hp)*(t.boss?1.2:Math.min(1.3,1.04+.035*tier))*diff().hp*(1+diff().kHp*(lv-1)));return{k:t.k,name:t.name,hp,maxhp:hp,ac:t.ac+(t.boss?1:0),hit:t.hit+(t.boss||tier>=3?1:0),dmg:[t.dmg[0],t.dmg[1],t.dmg[2]+(t.boss||tier>=2?1:0)],xp:t.xp,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
-const monTable=()=>chap().mons.filter(m=>G.depth>=m.min&&G.depth<=m.max);
+function makeMon(t){const hp=roll(...t.hp);return{k:t.k,name:t.name,cr:t.cr,hp,maxhp:hp,ac:t.ac,hit:t.hit,dmg:t.dmg.slice(),xp:XP_BY_CR[t.cr]||0,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
+
 function pickItemKey(){const pool=Object.entries(ITEMS).filter(([k,v])=>v.w>0&&(k!=='weapon'||G.depth>=2));let r=rnd(pool.reduce((s,[,v])=>s+v.w,0));for(const [k,v] of pool){if((r-=v.w)<0)return k}return 'potion'}
 function newItem(k){
   if(k==='gold')return{k,amt:roll(2,6,G.depth*4)};
@@ -697,18 +731,17 @@ function turnHostile(c){
   const w=wdef(c.weapon),caster=c.role==='caster',st=WEAPONS[c.weapon.id].stat;
   const mod=caster?c.stats[ckOf(c)==='wizard'?'int':'cha']:(st==='finesse'||st==='dex')?Math.max(c.stats.dex,c.stats.str):c.stats.str;
   const m={k:'traitor',name:c.name,traitor:true,id:c.id,hp:Math.max(c.hp,Math.ceil(c.maxhp*.6)),maxhp:c.maxhp,ac:c.acBase,hit:prof()+mod+w.bonus,
-    dmg:caster?[G.lvl>=5?2:1,10,0]:[w.n,w.d,mod+w.bonus],xp:10+G.lvl*6,slow:false,boss:false,aware:true,tick:0,tag:'',scorched:false,weapon:c.weapon};
+    dmg:caster?[G.lvl>=5?2:1,10,0]:[w.n,w.d,mod+w.bonus],xp:XP_BY_CR[[.5,1,2,3,4,5,6,7,8,9,10][Math.min(10,Math.floor(G.lvl/2))]]||100,slow:false,boss:false,aware:true,tick:0,tag:'',scorched:false,weapon:c.weapon};
   room().mons.push(m);G.fighting=true;
 }
 
 /* ---------- events (branching, roll-dependent encounters) ---------- */
 const E={
   fight(keys,after=null,{surprise=false}={}){
-    const r=room(),extra=Math.max(0,groupSize()-keys.length),t=monTable();keys=keys.slice();
-    for(let i=0;i<extra;i++)keys.push(pick(t).k);
+    const r=room(),base=keys.length;keys=encounter({fixed:keys});const extra=keys.length-base;
     for(const k of keys){const t0=MONK[k],m=makeMon(t0);m.aware=!surprise;
-      const gap=chap().mons.includes(t0)?t0.min-G.depth:0;
-      if(gap>0){const f=Math.max(.45,1-gap*.15);m.maxhp=m.hp=Math.max(4,Math.round(m.hp*f));m.hit=Math.max(2,m.hit-gap);m.dmg=[m.dmg[0],m.dmg[1],Math.max(0,m.dmg[2]-gap)];m.xp=Math.max(3,Math.round(m.xp*f));m.ac=Math.max(10,m.ac-Math.ceil(gap/2))}
+      const gap=Math.min(4,Math.floor(Math.log2(Math.max(1,XP_BY_CR[t0.cr]/(THRESH[Math.min(G.lvl,15)-1][2]*1.5)))));
+      if(gap>0){const f=Math.max(.45,1-gap*.15);m.maxhp=m.hp=Math.max(4,Math.round(m.hp*f));m.hit=Math.max(2,m.hit-gap);m.dmg=[m.dmg[0],m.dmg[1],Math.max(0,m.dmg[2]-gap)];m.xp=Math.max(10,Math.round(m.xp*f));m.ac=Math.max(10,m.ac-Math.ceil(gap/2))}
       r.mons.push(m)}retag(r);
     if(extra)log(`${extra>1?'More of them come':'Another one comes'} running at the sound. A bigger party draws a bigger crowd.`,'threat');
     G.ev.waiting=true;G.ev.after=after;if(!surprise)G.fighting=true;
@@ -1239,7 +1272,7 @@ function evGo(id){
   if(node.next)return evGo(node.next);
   if(node.end||!node.o)endEvent();
 }
-function endEvent(){if(!G.ev)return;const r=G.rooms[G.ev.room];if(r&&r.event===G.ev.id)r.event=null;G.ev=null}
+function endEvent(){if(!G.ev)return;if(!EVENTS[G.ev.id].special)milestone(THRESH[Math.min(G.lvl,15)-1][1],'Encounter resolved.');const r=G.rooms[G.ev.room];if(r&&r.event===G.ev.id)r.event=null;G.ev=null}
 
 /* ---------- floor generation ---------- */
 function pickEvents(){
@@ -1272,11 +1305,11 @@ function genFloor(){
   list.forEach(r=>{r.name=draw('rooms',th.rooms);const a=draw('bits',th.bits);let b=draw('bits',th.bits);if(b===a)b=draw('bits',th.bits);r.desc=Math.random()<.5?[a]:[a,b]});
   G.rooms=rooms;
   if(d<FLOORS())far.stairs=true;else{far.throne=true;far.name=chap().throne.name;far.desc=[chap().throne.desc]}
-  const table=monTable(),nComp=comps().length;
+  const nComp=comps().length;
   for(const r of list){
     if(r===start)continue;
-    if(r.throne){const b=makeMon(chap().boss);b.maxhp+=nComp*(10+(G.chapter||0)*5);b.hp=b.maxhp;r.mons.push(b);for(let i=0;i<Math.max(1,groupSize()-1);i++)r.mons.push(makeMon(MONK[pick(chap().escort)]));retag(r);continue}
-    if(Math.random()<.58+nComp*.06){let n=groupSize()+(d>=4&&Math.random()<.3?1:0);n=Math.min(n,G.party.length+2);const t=pick(table);for(let i=0;i<n;i++)r.mons.push(makeMon(Math.random()<.7?t:pick(table)));retag(r)}
+    if(r.throne){G.cur=key(r.x,r.y);r.mons.push(makeMon(chap().boss));const bx=XP_BY_CR[chap().boss.cr];const left=Math.max(0,budget(1.4)-bx*encMult(2,G.party.length));for(const k of encounter({mult:Math.max(.15,left/budget()),pool:chap().escort.map(k=>MONK[k]),max:Math.max(1,G.party.length-1)}))r.mons.push(makeMon(MONK[k]));retag(r);G.cur=key(2,2);continue}
+    if(Math.random()<.58+nComp*.06){G.cur=key(r.x,r.y);spawn(encounter());G.cur=key(2,2)}
     if(Math.random()<.28)r.items.push(newItem(pickItemKey()));
     if(Math.random()<.25){const k=pick(Object.keys(FEATURES));r.feature={k,used:false,trap:k==='chest'&&Math.random()<.4,checked:false}}
     if(Math.random()<.3)r.hidden=newItem(pickItemKey());
@@ -1346,6 +1379,9 @@ function enterRoom(k){
 }
 function move(dk){const k=room().exits[dk];if(k)enterRoom(k)}
 function descend(){
+  milestone(THRESH[Math.min(G.lvl,15)-1][3],`Floor ${G.depth} cleared.`);
+  for(const m of G.party){m.down=false;m.hp=m.maxhp}
+  log(`You make camp at the top of the stairs and take a long rest. Everyone wakes with full HP, and abilities are restored.`,'heal');
   G.depth++;genFloor();
   log(chap().stairs==='up'?`You lead the party up the winding stair. The wind grows hotter and the air thinner.`:(G.chapter||0)===1?`You lead the party down the stairs into colder, deeper water.`:`You lead the party down the stairs. The air grows ${G.depth>=7?'hot and dry':G.depth>=5?'still and dry':'colder and wetter'}.`,'sys');
   if(G.depth===FLOORS())log(chap().lastFloor,'big');
@@ -1357,8 +1393,7 @@ function descend(){
 }
 function wander(chance){
   if(Math.random()>=chance)return false;
-  const r=room(),n=Math.max(1,groupSize(.7)),t=pick(monTable()),ms=[];
-  for(let i=0;i<n;i++){const m=makeMon(Math.random()<.7?t:pick(monTable()));m.aware=true;r.mons.push(m);ms.push(m)}retag(r);G.fighting=true;
+  const ms=spawn(encounter({mult:.6}),true),n=ms.length;G.fighting=true;
   log(n===1?`Footsteps. ${cap(theM(ms[0]))} wanders in from the passage and sees you!`:`Footsteps, lots of them. ${cap(listJoin(ms.map(theM)))} pour in from the passage!`,'threat');
   return true;
 }
@@ -1397,15 +1432,16 @@ function hurt(m,dmg){if(m.k==='abbess'&&room().mons.some(o=>o.k==='siren')){dmg=
   m.hp-=dmg;m.aware=true;if(m.hp<=0)kill(m)}
 function kill(m){
   const r=room();if(!r.mons.includes(m))return;r.mons=r.mons.filter(o=>o!==m);if(!m.traitor)G.kills++;
+  const share=Math.max(1,Math.round(m.xp/G.party.length));
   if(m.boss){
     const t={king:'The Hollow King staggers, drops to one knee, and comes apart into ash and old iron. The Ember Crown rolls across the floor and stops at your feet.',
       abbess:'The Drowned Abbess sinks slowly to the floor of her reef. The choir falls silent, all at once, for the first time in two hundred years. The Tide Crown drifts down into the sand.',
       wyrm:'Vharzhul rears up, roars one last gout of flame at the sky, and crashes down across his hoard. Gold slides and rings for a long time. The Sky Crown slips from his horn and rolls to your feet.'}[m.k];
-    log(t,'big');r.items.push({k:chap().prize,amt:1});return}
-  if(m.traitor){log(`${m.name} falls, and does not get up. You take back the ${wname(m.weapon)}.`,'hurt',`+${m.xp} XP`);G.pack.weapons.push(m.weapon);G.flags['dead_'+m.id]=true;gainXP(m.xp);return}
-  log(`${cap(theM(m))} ${m.k==='skeleton'?'collapses into a pile of bones':m.k==='ooze'?'spreads into a harmless puddle':m.k==='wraith'?'fades with a long sigh':'falls and does not get up'}.`,'text',`+${m.xp} XP`);
+    log(t,'big');r.items.push({k:chap().prize,amt:1});gainXP(share);return}
+  if(m.traitor){log(`${m.name} falls, and does not get up. You take back the ${wname(m.weapon)}.`,'hurt',`+${share} XP each`);G.pack.weapons.push(m.weapon);G.flags['dead_'+m.id]=true;gainXP(share);return}
+  log(`${cap(theM(m))} ${m.k==='skeleton'?'collapses into a pile of bones':m.k==='ooze'?'spreads into a harmless puddle':m.k==='wraith'?'fades with a long sigh':'falls and does not get up'}.`,'text',`CR ${crLabel(m.cr)} · +${share} XP each`);
   if(Math.random()<.35)r.items.push({k:'gold',amt:roll(1,8,G.depth*2)});
-  gainXP(m.xp);
+  gainXP(share);
 }
 function gainXP(n){
   G.xp+=n;
@@ -1530,7 +1566,7 @@ function round(){
     if(r.mons.length)monstersAct();
     if(!G.over)bossRegen();
     if(!G.over&&r.mons.length&&!G.reinforced&&comps().length>=2&&!r.throne&&Math.random()<.06*comps().length){
-      G.reinforced=true;const m=makeMon(pick(monTable()));m.aware=true;r.mons.push(m);retag(r);
+      G.reinforced=true;const m=spawn(encounter({mult:.25,max:1}),true)[0];
       log(`Drawn by the noise of battle, ${theM(m).replace(/^the (first |second |third |fourth |fifth )?/,'a ')} charges in to join the fight!`,'threat');}
     for(const p of G.party)if(p.rage>0){p.rage--;if(!p.rage)log(p.hero?'Your rage burns out.':`${p.name}\u2019s rage burns out.`,'sys')}
   }
@@ -1847,7 +1883,7 @@ function buildChoices(){
       if(f.k==='bones')add('Search the fallen adventurer',()=>feature('bones'),{cmds:['search bones','bones','loot bones'],sub:'They won’t need it now'});
     }
     if(!r.searched)add('Search the room',search,{cmds:['search','search room','look around'],sub:subCheck('int',12)+' · a roll of 5 or less backfires'});
-    if(r.stairs)add(chap().stairs==='up'?'Climb the stairs':'Descend the stairs',descend,{cmds:['descend','down','stairs','go down','d','climb','up','go up'],sub:`To floor ${G.depth+1}. Abilities recharge.`,kind:'prime'});
+    if(r.stairs)add(chap().stairs==='up'?'Climb the stairs':'Descend the stairs',descend,{cmds:['descend','down','stairs','go down','d','climb','up','go up'],sub:`To floor ${G.depth+1}. Long rest first: full HP and abilities.`,kind:'prime'});
     if(!G.restUsed&&G.party.some(m=>m.hp<m.maxhp))add('Take a short rest',rest,{cmds:['rest','sleep','short rest','camp'],sub:`Once per floor. ${h.cls==='fighter'?'Heals everyone to full':'Heals everyone by half'}, if nothing finds you`});
     if(h.charges>0&&h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${h.charges} left`});
     if(h.charges>0&&h.cls==='cleric')for(const t of healTargets)add(`Healing Word on ${t.hero?'yourself':t.name}`,()=>useAbility(t),{cmds:['heal '+t.name.toLowerCase()],sub:`${t.hp}/${t.maxhp} HP. ${h.charges} left`});
