@@ -90,6 +90,10 @@ h1{font-family:var(--f-display);font-weight:700;font-size:2.4rem;line-height:1;m
 .choice.hero .l{font-family:var(--f-display);font-size:1.4rem;line-height:1.05}
 .choice.myth .l{color:var(--mythic)}
 .choice.ev{border-color:#3d3526;background:#1f1b15}
+.diff{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:-4px 0 -2px}
+.diff button{background:var(--void);border:1px solid var(--line);border-radius:3px;color:var(--muted);font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 0;cursor:pointer}
+.diff button.on{border-color:var(--ember-dim);color:var(--ember);background:#231b12}
+.diff button:focus-visible{outline:2px solid var(--ember);outline-offset:1px}
 
 form.cmdline{display:flex;gap:8px}
 form.cmdline label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -602,7 +606,17 @@ function scene(title,eyebrow,paras){G.log.push({t:'scene',title,eyebrow,paras})}
 function calcMax(m){const c=m.stats.con;return m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)}
 function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)}
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
-function makeMon(t){const tier=G?(G.chapter||0)*8+(G.depth||1):1,hp=Math.round(roll(...t.hp)*(t.boss?1.2:Math.min(1.3,1.04+.035*tier)));return{k:t.k,name:t.name,hp,maxhp:hp,ac:t.ac+(t.boss?1:0),hit:t.hit+(t.boss||tier>=3?1:0),dmg:[t.dmg[0],t.dmg[1],t.dmg[2]+(t.boss||tier>=2?1:0)],xp:t.xp,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
+const DIFFS=[
+  {name:'Story',hp:.8,hit:-1,dmg:-1,extra:0,kHit:0,kDmg:0,kHp:0,heroW:1},
+  {name:'Normal',hp:1,hit:0,dmg:0,extra:0,kHit:.2,kDmg:.3,kHp:.04,heroW:2},
+  {name:'Hard',hp:1.05,hit:0,dmg:0,extra:.2,kHit:.3,kDmg:.5,kHp:.06,heroW:2.5},
+  {name:'Deadly',hp:1.2,hit:1,dmg:1,extra:.4,kHit:.45,kDmg:.8,kHp:.08,heroW:3},
+];
+const diff=()=>DIFFS[G&&G.diff!=null?G.diff:1];
+const monHit=m=>m.hit+diff().hit+Math.floor((G.lvl-1)*diff().kHit);
+const monDmg=()=>diff().dmg+Math.floor((G.lvl-1)*diff().kDmg);
+function setDiff(i){G.diff=i;try{localStorage.setItem('emberdeep-difficulty',String(i))}catch(e){}log(`Difficulty set to ${DIFFS[i].name}.`,'sys');save();render()}
+function makeMon(t){const tier=G?(G.chapter||0)*8+(G.depth||1):1,lv=G?G.lvl:1,hp=Math.round(roll(...t.hp)*(t.boss?1.2:Math.min(1.3,1.04+.035*tier))*diff().hp*(1+diff().kHp*(lv-1)));return{k:t.k,name:t.name,hp,maxhp:hp,ac:t.ac+(t.boss?1:0),hit:t.hit+(t.boss||tier>=3?1:0),dmg:[t.dmg[0],t.dmg[1],t.dmg[2]+(t.boss||tier>=2?1:0)],xp:t.xp,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
 const monTable=()=>chap().mons.filter(m=>G.depth>=m.min&&G.depth<=m.max);
 function pickItemKey(){const pool=Object.entries(ITEMS).filter(([k,v])=>v.w>0&&(k!=='weapon'||G.depth>=2));let r=rnd(pool.reduce((s,[,v])=>s+v.w,0));for(const [k,v] of pool){if((r-=v.w)<0)return k}return 'potion'}
 function newItem(k){
@@ -1213,7 +1227,7 @@ function genFloor(){
   for(const r of list){
     if(r===start)continue;
     if(r.throne){const b=makeMon(chap().boss);b.maxhp+=nComp*(10+(G.chapter||0)*5);b.hp=b.maxhp;r.mons.push(b);for(let i=0;i<1+Math.ceil(nComp/2);i++)r.mons.push(makeMon(MONK[pick(chap().escort)]));retag(r);continue}
-    if(Math.random()<.58+nComp*.06){let n=1+((d>=3&&Math.random()<.35)?1:0);for(let i=0;i<nComp;i++)if(Math.random()<.55)n++;n=Math.min(n,1+nComp+(d>=4?1:0));const t=pick(table);for(let i=0;i<n;i++)r.mons.push(makeMon(Math.random()<.7?t:pick(table)));retag(r)}
+    if(Math.random()<.58+nComp*.06){let n=1+((d>=3&&Math.random()<.35)?1:0);for(let i=0;i<nComp;i++)if(Math.random()<.55)n++;if(d>=2&&Math.random()<diff().extra)n++;n=Math.min(n,1+nComp+(d>=4?1:0)+(diff().extra&&d>=2?1:0));const t=pick(table);for(let i=0;i<n;i++)r.mons.push(makeMon(Math.random()<.7?t:pick(table)));retag(r)}
     if(Math.random()<.28)r.items.push(newItem(pickItemKey()));
     if(Math.random()<.25){const k=pick(Object.keys(FEATURES));r.feature={k,used:false,trap:k==='chest'&&Math.random()<.4,checked:false}}
     if(Math.random()<.3)r.hidden=newItem(pickItemKey());
@@ -1357,16 +1371,16 @@ function gainXP(n){
   }
 }
 function pickTarget(){
-  const alive=living();let tot=0;const w=alive.map(m=>{const x=m.hero?2:m.role==='tank'?3:1;tot+=x;return x});
+  const alive=living();let tot=0;const w=alive.map(m=>{const x=m.hero?diff().heroW:m.role==='tank'?3:1;tot+=x;return x});
   let r=Math.random()*tot;for(let i=0;i<alive.length;i++){if((r-=w[i])<0)return alive[i]}return alive[0];
 }
 function monAttack(m){
   const t=pickTarget();if(!t)return;
-  const rl=roll(1,20),tot=rl+m.hit-(ckOf(t)==='monk'?2:0),A=ac(t),crit=rl===20,det=`d20 ${rl}${sgn(m.hit)}=${tot} vs AC ${A}`;
+  const mh=monHit(m),rl=roll(1,20),tot=rl+mh-(ckOf(t)==='monk'?2:0),A=ac(t),crit=rl===20,det=`d20 ${rl}${sgn(mh)}=${tot} vs AC ${A}`;
   const tn=t.hero?'you':t.name;
   if(rl===1||(!crit&&tot<A)){log(`${cap(theM(m))} attacks ${tn}, but ${t.hero?'you turn':'they turn'} the blow aside.`,'miss',det);return}
   if(t.hero&&t.ward){t.ward=false;log(`${cap(theM(m))} strikes, and your arcane ward flares and absorbs the blow.`,'magic',det);return}
-  const [n,d,b]=m.dmg;let dmg=Math.max(1,roll(crit?n*2:n,d,b));
+  const [n,d,b0]=m.dmg,b=b0+monDmg();let dmg=Math.max(1,roll(crit?n*2:n,d,b));
   if(t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
   if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
   t.hp-=dmg;
@@ -1819,7 +1833,8 @@ function showTitle(){
 }
 function start(cls,name){
   const h=makeHero(cls,name);
-  G={depth:1,lvl:1,xp:0,turn:0,log:[],over:null,party:[h],pack:{potion:2,fire:0,map:0,weapons:[]},gold:0,kills:0,flags:{},done:[],rooms:{},cur:null,prev:null,restUsed:false,farSight:false,theme:'',ev:null,menu:null,bless:false,fighting:false};
+  let pref=1;try{const v=localStorage.getItem('emberdeep-difficulty');if(v!=null)pref=+v}catch(e){}
+  G={diff:pref,depth:1,lvl:1,xp:0,turn:0,log:[],over:null,party:[h],pack:{potion:2,fire:0,map:0,weapons:[]},gold:0,kills:0,flags:{},done:[],rooms:{},cur:null,prev:null,restUsed:false,farSight:false,theme:'',ev:null,menu:null,bless:false,fighting:false};
   h.maxhp=calcMax(h);h.hp=h.maxhp;
   genFloor();
   log(`${name} lights a torch, checks their ${wname(h.weapon)}, and starts down the stairs alone.`,'sys');
@@ -1852,6 +1867,7 @@ function renderSheet(){
   const xpPct=G.lvl>=XPT.length?100:Math.min(100,(G.xp-lo)/(hi-lo)*100);
   const wd=WEAPONS[h.weapon.id];
   S.innerHTML=`
+  <div class="diff" role="group" aria-label="Difficulty">${DIFFS.map((d,i)=>`<button type="button" data-diff="${i}" class="${i===(G.diff??1)?'on':''}" aria-pressed="${i===(G.diff??1)}">${d.name}</button>`).join('')}</div>
   <div class="who"><span class="cn" style="color:${c.col}">${escHTML(h.name)}</span><span class="lv">${c.name} · Level ${G.lvl}</span></div>
   <div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${h.hp} / ${h.maxhp} HP</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
   <div class="scores">${STATS.map(s=>`<div class="score"><small>${s.toUpperCase()}</small><b>${10+h.stats[s]*2}</b><em>${sgn(h.stats[s])}</em></div>`).join('')}</div>
@@ -1875,6 +1891,7 @@ function renderSheet(){
 }
 
 /* ---------- input ---------- */
+$('#sheet').addEventListener('click',e=>{const b=e.target.closest('[data-diff]');if(b&&G)setDiff(+b.dataset.diff)});
 $('#choices').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b)runChoice(choiceCache[+b.dataset.i])});
 $('#cmdform').addEventListener('submit',e=>{e.preventDefault();const i=$('#cmd'),v=i.value;i.value='';runCommand(v)});
 
