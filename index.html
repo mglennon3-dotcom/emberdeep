@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 15</p>
+  <p class="build">Emberdeep · build 16</p>
 </div>
 
 <script>
@@ -1797,19 +1797,27 @@ function buildChoices(){
     return C;
   }
   if(G.menu==='gear'){
-    G.pack.weapons.forEach((w,i)=>{
-      const d=WEAPONS[w.id];
-      add(`Equip ${d.mythic?d.name:'the '+wname(w)} yourself`,()=>equip(i,h),{sub:`${wdice(h,w)}${d.lore?' · '+d.lore:''} (now ${wname(h.weapon)} ${wdice(h,h.weapon)})`,kind:d.mythic?'myth':''});
-      for(const m of comps())add(`Give ${d.mythic?d.name:'the '+wname(w)} to ${m.name}`,()=>equip(i,m),{sub:`${wdice(m,w)} for ${m.name} (now ${wname(m.weapon)} ${wdice(m,m.weapon)})`,kind:d.mythic?'myth':''});
-    });
-    if(G.pack.potion>0)for(const m of comps().filter(m=>m.hp<m.maxhp))add(`Give a draught to ${m.name}`,()=>drink(m),{sub:`${m.hp}/${m.maxhp} HP`});
-    for(const m of comps())add(`Part ways with ${m.name}`,()=>{G.menu=null;startEvent('dismiss',{who:m.id})},{cmds:['dismiss '+m.name.toLowerCase(),'part ways '+m.name.toLowerCase()],sub:`${LOYAL_WORD(m.loyalty)} · carrying ${wname(m.weapon)}`});
-    add('Done',()=>{G.menu=null},{cmds:['done','back','close'],kind:'prime',echo:false});
+    for(const [k,n] of [['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight']])
+      if(G.pack[k])add(`${n} × ${G.pack[k]}`,()=>openItem(k,'gear'),{cmds:[n.toLowerCase()],sub:{potion:'Drink it or give it to someone',fire:'3d6 fire to every foe here',map:'Reveal the floor'}[k],echo:false});
+    G.pack.weapons.forEach((w,i)=>{const d=WEAPONS[w.id];
+      add(cap(wname(w)),()=>openItem('w'+i,'gear'),{cmds:[wname(w).toLowerCase()],sub:`${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''} · equip or hand it out`,kind:d.mythic?'myth':'',echo:false})});
+    for(const m of comps())add(`${m.name}, ${CLASSES[ckOf(m)].name.toLowerCase()}`,()=>{G.menu={type:'mate',id:m.id};logCard(m)},{cmds:[m.name.toLowerCase()],sub:`${m.down?'Fallen':m.hp+'/'+m.maxhp+' HP'} · ${LOYAL_WORD(m.loyalty)} · ${wname(m.weapon)}`,echo:false});
+    add('Close',()=>{G.menu=null},{cmds:['done','back','close'],kind:'prime',echo:false});
+    return C;
+  }
+  if(G.menu&&G.menu.type==='mate'){
+    const m=G.party.find(p=>p.id===G.menu.id);
+    if(m){
+      if(G.pack.potion>0&&(m.down||m.hp<m.maxhp))add(`Give ${m.name} a Healing Draught`,()=>{G.menu='gear';drink(m)},{sub:`${m.hp}/${m.maxhp} HP · ${G.pack.potion} left`});
+      add(`Part ways with ${m.name}`,()=>{G.menu=null;startEvent('dismiss',{who:m.id})},{cmds:['dismiss','part ways'],sub:`${LOYAL_WORD(m.loyalty)} · they keep their ${wname(m.weapon)}`});
+    }
+    add('Back to pack',()=>{G.menu='gear'},{cmds:['back'],echo:false});
+    add('Close',()=>{G.menu=null},{cmds:['close','done'],kind:'prime',echo:false});
     return C;
   }
   if(G.cur==='town'){
     add('Back to the tavern',()=>startEvent('tavern'),{cmds:['tavern','back','continue'],kind:'prime',echo:false});
-    add('Party & gear',()=>{G.menu='gear'},{cmds:['gear','party','equip'],sub:`${G.pack.weapons.length} weapon${G.pack.weapons.length===1?'':'s'} in your pack`,echo:false});
+    add('Pack & party',()=>{G.menu='gear'},{cmds:['gear','party','equip','pack','inventory gear'],sub:packSummary(),echo:false});
     return C;
   }
   for(const m of unaware)add(`Attack ${theM(m)}`,()=>strike(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,'ambush',m.name],sub:isRogue()?`Surprise: advantage + ${sneakDice()}d6 sneak attack`:'Surprise: attack with advantage',kind:'fight',combat:true});
@@ -1843,7 +1851,7 @@ function buildChoices(){
     if(h.charges>0&&h.cls==='cleric')for(const t of healTargets)add(`Healing Word on ${t.hero?'yourself':t.name}`,()=>useAbility(t),{cmds:['heal '+t.name.toLowerCase()],sub:`${t.hp}/${t.maxhp} HP. ${h.charges} left`});
     if(G.pack.potion>0&&h.hp<h.maxhp)add('Drink a Healing Draught',()=>drink(),{cmds:['drink','potion','quaff','heal'],sub:`${G.pack.potion} in your pack`});
     if(h.charges>0&&h.cls==='bard'&&G.party.some(m=>m.hp<m.maxhp))add('Sing the Song of Courage',()=>useAbility(),{cmds:['sing','song','ability'],sub:`Heal everyone, +1 to hit this floor. ${h.charges} left`});
-    if(G.pack.weapons.length||comps().length||(G.pack.potion>0&&comps().some(m=>m.hp<m.maxhp)))add('Party & gear',()=>{G.menu='gear'},{cmds:['gear','party','equip','inventory gear'],sub:`${G.pack.weapons.length} weapon${G.pack.weapons.length===1?'':'s'} in your pack`,echo:false});
+    add('Pack & party',()=>{G.menu='gear'},{cmds:['gear','party','equip','pack','inventory gear'],sub:packSummary(),echo:false});
   }
   if(G.pack.map>0&&!G.farSight)add('Read the Scroll of Far Sight',readFarSight,{cmds:['read far sight','far sight','read map'],sub:'Reveal this floor on your map'});
   return C;
@@ -1986,8 +1994,9 @@ $('#sheet').addEventListener('click',e=>{
   const mt=e.target.closest('[data-mate]');if(mt&&G){const c=G.party.find(m=>m.id===mt.dataset.mate);if(c){logCard(c);render()}}
 });
 $('#sheet').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('[data-mate]')){e.preventDefault();e.target.click()}});
-function openItem(key){
-  G.menu={type:'item',item:key};
+function packSummary(){const n=G.pack.potion+G.pack.fire+G.pack.map+G.pack.weapons.length,c=comps().length;return `${n} item${n===1?'':'s'} · ${c} companion${c===1?'':'s'}`}
+function openItem(key,from){
+  G.menu={type:'item',item:key,from};
   if(key[0]==='w'){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
     log(`${cap(wname(w))}: ${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''}. ${d.lore||(d.stat==='finesse'?'Uses Strength or Dexterity, whichever is higher.':d.stat==='int'?'Uses Intelligence.':d.stat==='wis'?'Uses Wisdom.':d.stat==='dex'?'Uses Dexterity.':'Uses Strength.')}`,'sys')}
   else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
@@ -1999,7 +2008,7 @@ function openItem(key){
   if(matchMedia('(max-width:880px)').matches)$('#choices').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function itemChoices(add,inFight){
-  const key=G.menu.item,h=H(),back=()=>{G.menu=null};
+  const key=G.menu.item,from=G.menu.from,h=H(),back=()=>{G.menu=from==='gear'?'gear':null};
   if(key==='potion'&&G.pack.potion>0){
     add('Drink it yourself',()=>{back();drink()},{sub:`${h.hp}/${h.maxhp} HP`,combat:inFight,kind:'prime'});
     for(const m of comps())add(`Give it to ${m.name}`,()=>{back();drink(m)},{sub:m.down?'Fallen: gets them back up':`${m.hp}/${m.maxhp} HP`,combat:inFight});
@@ -2013,7 +2022,8 @@ function itemChoices(add,inFight){
       for(const m of comps())add(`Give it to ${m.name}`,()=>{back();equip(i,m)},{sub:`${CLASSES[ckOf(m)].name} · now ${wname(m.weapon)} ${wdice(m,m.weapon)} → ${wdice(m,w)}`});
       add('Drop it',()=>{back();G.pack.weapons.splice(i,1);log(`You leave the ${wname(w)} behind.`,'sys')},{sub:'Gone for good'});}
   }
-  add('Close the pack',back,{echo:false});
+  if(from==='gear')add('Back to pack',()=>{G.menu='gear'},{cmds:['back'],echo:false});
+  add('Close',()=>{G.menu=null},{cmds:['close','done'],echo:false,kind:from==='gear'?'':'prime'});
 }
 $('#choices').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b)runChoice(choiceCache[+b.dataset.i])});
 $('#cmdform').addEventListener('submit',e=>{e.preventDefault();const i=$('#cmd'),v=i.value;i.value='';runCommand(v)});
