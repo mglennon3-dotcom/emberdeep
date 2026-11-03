@@ -630,7 +630,10 @@ const E={
   fight(keys,after=null,{surprise=false}={}){
     const r=room(),extra=comps().length>=3?2:comps().length>=2?1:0,t=monTable();keys=keys.slice();
     for(let i=0;i<extra;i++)keys.push(pick(t).k);
-    for(const k of keys){const m=makeMon(MONK[k]);m.aware=!surprise;r.mons.push(m)}retag(r);
+    for(const k of keys){const t0=MONK[k],m=makeMon(t0);m.aware=!surprise;
+      const gap=chap().mons.includes(t0)?t0.min-G.depth:0;
+      if(gap>0){const f=Math.max(.45,1-gap*.15);m.maxhp=m.hp=Math.max(4,Math.round(m.hp*f));m.hit=Math.max(2,m.hit-gap);m.dmg=[m.dmg[0],m.dmg[1],Math.max(0,m.dmg[2]-gap)];m.xp=Math.max(3,Math.round(m.xp*f));m.ac=Math.max(10,m.ac-Math.ceil(gap/2))}
+      r.mons.push(m)}retag(r);
     if(extra)log(`${extra>1?'More of them come':'Another one comes'} running at the sound. A bigger party draws a bigger crowd.`,'threat');
     G.ev.waiting=true;G.ev.after=after;if(!surprise)G.fighting=true;
   },
@@ -646,7 +649,7 @@ const E={
   full:()=>comps().length>=MAX_COMPANIONS,
 };
 const EVENTS={
-  smith:{min:1,max:3,recruit:true,title:'The chained smith',nodes:{
+  smith:{min:1,max:6,recruit:true,title:'The chained smith',nodes:{
     start:{t:'Goblins have a dwarf chained to a handcart and are making him sharpen a pile of spears. He has a soot-black beard and arms like tree roots. He catches your eye and nods, very slightly, at the padlock.',o:[
       {l:'Attack the goblins',sub:'Fight them head on',go:'fight'},
       {l:'Bluff: claim the dwarf belongs to your lord',check:['cha',13],ok:'bluffok',no:'bluffno'},
@@ -665,7 +668,7 @@ const EVENTS={
     joined:{t:'Brannoc wipes his hammer on a goblin’s shirt. “Brannoc Ironhand. I walk with you now, whether you like it or not.”',end:true},
     leave:{t:'You slip past. Behind you, the scrape of the whetstone goes on and on.',fx:()=>{E.flag('left_brannoc');E.mood({ysolde:-1})},end:true}}},
 
-  priest:{min:1,max:4,recruit:true,title:'A circle of salt',nodes:{
+  priest:{min:1,max:6,recruit:true,title:'A circle of salt',nodes:{
     start:{t:'A woman in a grey robe kneels inside a circle of salt, praying aloud. A grey ooze circles her, testing the line. Each time it touches the salt it hisses and draws back. The line is getting thinner.',o:[
       {l:'Attack the ooze',go:'fight'},
       {l:'Drive it off with your torch',check:['wis',12],ok:'scare',no:'scareno'},
@@ -683,7 +686,7 @@ const EVENTS={
     bless:{t:'She lays a hand on your brow and murmurs. Warmth floods through you and your wounds close. +4 maximum HP.',fx:()=>{E.maxhp(4);E.healAll();E.flag('blessed_ysolde')},end:true},
     leave:{t:'You back away. Her prayer follows you down the corridor, a little faster now.',fx:()=>{E.flag('left_ysolde');E.mood({brannoc:-1})},end:true}}},
 
-  kobold:{min:1,max:5,recruit:true,title:'Pip',nodes:{
+  kobold:{min:1,max:6,recruit:true,title:'Pip',nodes:{
     start:{t:'A kobold steps out from behind a pillar, aiming a crossbow almost as big as he is. “Stop! Pip is done with this. Pip wants to go home, but home is down, and down is dangerous. You look dangerous. Take Pip with you?”',o:[
       {l:'Hear him out',go:'offer'},
       {l:'Intimidate him into guiding you',check:['str',12],ok:'intok',no:'intno'},
@@ -700,7 +703,7 @@ const EVENTS={
     fight:{t:'Pip squeaks and fires.',fx:()=>{E.mood({ysolde:-1});E.fight(['kobold'])}},
     away:{t:'“Fine! Pip will find someone nicer!” He stomps off.',end:true}}},
 
-  ranger:{min:3,max:6,recruit:true,title:'Snared',nodes:{
+  ranger:{min:1,max:7,recruit:true,title:'Snared',nodes:{
     start:{t:'A woman in a green cloak hangs upside down from a snare, her bow just out of reach below her. A ghoul crouches beneath, patient as a cat, waiting for her to tire.',o:[
       {l:'Attack the ghoul',go:'fight'},
       {l:'Throw a blade to cut the rope',check:['dex',14],ok:'cut',no:'cutno'},
@@ -718,7 +721,7 @@ const EVENTS={
     joined:{t:'Maren retrieves her arrows from the ghoul. “Maren, of the Thornwood. I owe you. I’ll be paying it back with these.”',end:true},
     leave:{t:'You keep to the shadows and leave her to it.',fx:()=>{E.flag('left_maren');E.mood({brannoc:-1,ysolde:-1})},end:true}}},
 
-  witch:{min:4,max:7,recruit:true,title:'Tea for two',nodes:{
+  witch:{min:1,max:7,recruit:true,title:'Tea for two',nodes:{
     start:{t:'In the middle of a crypt sits a small table set for two. An old woman is pouring tea into chipped cups. “Sit, sit. I am Tessaly, and I have been bored to death down here, and I do mean that. Answer me a riddle and I’ll come along and set things on fire for you.”',o:[
       {l:'Sit and hear the riddle',go:'riddle'},{l:'Decline politely',go:'decline'},{l:'Attack her',go:'attack'}]},
     riddle:{t:'“What has roots that nobody sees, is taller than trees; up, up it goes, and yet never grows?”',o:[
@@ -729,7 +732,7 @@ const EVENTS={
     decline:{t:'“Your loss,” she says, and goes back to her tea.',end:true},
     attack:{t:'Before you can draw, she bursts into a swarm of moths. They bite.',fx:()=>{E.dmg(2,6,0,'a swarm of moths');E.flag('angered_witch');E.mood({ysolde:-1})},end:true}}},
 
-  sellsword:{min:2,max:7,recruit:true,title:'Coin for a blade',nodes:{
+  sellsword:{min:1,max:7,recruit:true,title:'Coin for a blade',nodes:{
     start:{t:'A scarred man in good armor sits on an upturned crate, flipping a coin. A greatsword leans beside him. “Corvin. I fight for coin. Forty gold and I’ll follow you to the bottom. Or we roll dice for it. Beat me and I come free. Lose and I take ten.”',o:[
       {l:'Pay him 40 gold',if:()=>G.gold>=40,go:'paid'},
       {l:'Roll dice against him',sub:'Charisma vs his roll',check:['cha',()=>roll(1,20,3),'Dice against Corvin'],ok:'won',no:'lost'},
@@ -739,7 +742,7 @@ const EVENTS={
     lost:{t:'“Bad luck.” He pockets your coins. “The offer stands.”',fx:()=>{E.gold(-Math.min(10,G.gold))},next:'start'},
     leave:{t:'He shrugs and goes back to flipping his coin.',end:true}}},
 
-  pool:{min:2,max:5,title:'Cinderfang',nodes:{
+  pool:{min:1,max:6,title:'Cinderfang',nodes:{
     start:{t:'At the bottom of a clear, still pool lies a longsword, glowing like a coal. The water around it steams. Carved into the rim: CINDERFANG. IT BURNS ONLY THE UNWORTHY.',o:[
       {l:'Reach in and grab it',check:['con',13],ok:'got',no:'burn'},
       {l:'Fish it out with a spear shaft',check:['int',12],ok:'got',no:'sunk'},
@@ -749,7 +752,7 @@ const EVENTS={
     sunk:{t:'The sword slides off the shaft and drops into a crack at the bottom of the pool. It is gone.',end:true},
     leave:{t:'You leave the sword glowing in the dark.',end:true}}},
 
-  blade:{min:3,max:5,title:'The broken king',nodes:{
+  blade:{min:2,max:6,title:'The broken king',nodes:{
     start:{t:'A skeleton in tarnished royal armor sits against the wall, still gripping the hilt of a broken sword. The rest of the blade is gone. Scratched into the stone beside it, in a shaking hand: HE CANNOT BE KILLED BY ANYTHING HE MADE. FIRE STOPS HIM MENDING.',o:[
       {l:'Take the broken hilt',go:'take'},
       {l:'Search the body first',check:['int',12],ok:'search',no:'searchno'},
@@ -781,7 +784,7 @@ const EVENTS={
     bad:{t:'The heat is too much. You burn your hands and the steel comes out no better.',fx:()=>{E.dmg(1,8,0,'a forge fire')},end:true},
     leave:{t:'You leave the fire to burn.',end:true}}},
 
-  dagger:{min:1,max:4,title:'The whispering dagger',nodes:{
+  dagger:{min:1,max:6,title:'The whispering dagger',nodes:{
     start:{t:'A dagger is stuck in a door, quivering. As you get close you hear it whispering. Take me. Take me. I am so very sharp.',o:[
       {l:'Pull it free',check:['wis',12,'Wisdom save'],ok:'took',no:'cursed'},
       {l:'Snap the blade',check:['str',12],ok:'snap',no:'snapno'},
@@ -792,7 +795,7 @@ const EVENTS={
     snapno:{t:'The blade won’t break. It laughs at you.',next:'start'},
     leave:{t:'Its whispering follows you for a long time.',end:true}}},
 
-  tomb:{min:5,max:7,title:'The knight’s tomb',nodes:{
+  tomb:{min:3,max:7,title:'The knight’s tomb',nodes:{
     start:{t:'A knight’s stone tomb fills the center of the room. A warhammer has been set into the lid, its head carved with a closed eye. The inscription reads: GRAVEWARDEN. SHE KEPT THE DEAD IN THEIR GRAVES.',o:[
       {l:'Pull the hammer free',check:['str',14],ok:'got',no:'woke'},
       {l:'Pray for the knight',check:['wis',12],ok:'prayed',no:'woke'},
@@ -803,7 +806,7 @@ const EVENTS={
     after:{t:'With its guards destroyed, the hammer slides loose from the lid.',fx:()=>E.give('gravewarden'),end:true},
     leave:{t:'You leave the knight to her rest.',end:true}}},
 
-  merchant:{ch:'any',min:2,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden'].filter(id=>!owns(id)))||null},nodes:{
+  merchant:{ch:'any',min:1,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden'].filter(id=>!owns(id)))||null},nodes:{
     start:{t:ev=>`A skeleton in a merchant’s velvet hat has set up a stall on a coffin lid. “Customers! Living ones! Everything must go.”${ev.stock?` In pride of place lies ${WEAPONS[ev.stock].name}: ${WEAPONS[ev.stock].lore}`:''}`,o:[
       {l:'Buy a Healing Draught',sub:'20 gold',if:()=>G.gold>=20,go:'potion'},
       {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'scroll'},
@@ -820,7 +823,7 @@ const EVENTS={
     caught:{t:'“THIEF!” His jaw drops off with the force of it. Two bodyguards step out of the shadows.',fx:()=>E.fight(['skeleton','skeleton'])},
     leave:{t:'“Come back soon! Or don’t. Most don’t.”',end:true}}},
 
-  orc:{min:3,max:5,title:'The deserter',nodes:{
+  orc:{min:2,max:5,title:'The deserter',nodes:{
     start:{t:'An orc sits propped against the wall, one leg bent the wrong way. His axe is out of reach. He looks at you and doesn’t bother to beg. “Go on, then.”',o:[
       {l:'Give him a Healing Draught',if:()=>G.pack.potion>0,go:'help'},
       {l:'Set his leg',check:['wis',13],ok:'set',no:'setno'},
@@ -895,7 +898,7 @@ Object.assign(EVENTS,{
 });
 Object.assign(EVENTS,{
   /* chapter 2: the Drowned Abbey */
-  novice:{ch:1,min:1,max:3,recruit:true,title:'The bell rope',nodes:{
+  novice:{ch:1,min:1,max:5,recruit:true,title:'The bell rope',nodes:{
     start:{t:'In a bell tower half full of water, a young novice clings to the bell rope above the surface. Below her, a drowned thrall waits with its arms out. \u201cPlease,\u201d she whispers. \u201cI\u2019ve been praying for three days.\u201d',o:[
       {l:'Attack the thrall',go:'fight'},
       {l:'Swim under and pull her across',check:['str',14],ok:'swim',no:'swimno'},
@@ -911,7 +914,7 @@ Object.assign(EVENTS,{
     join:{t:'\u201cThen I\u2019ll pray for all of us.\u201d',fx:()=>E.recruit('nell',7),end:true},
     gift:{t:'She presses a vial of holy water into your hands and kisses your forehead. Everyone feels steadier. +4 maximum HP.',fx:()=>{E.maxhp(4);G.pack.potion++;E.mood({ysolde:1})},end:true},
     leave:{t:'Her prayers follow you down the corridor.',fx:()=>E.mood({ysolde:-1,brannoc:-1,nell:-1,ilvar:-1}),end:true}}},
-  diver:{ch:1,min:1,max:4,recruit:true,title:'The salvage diver',nodes:{
+  diver:{ch:1,min:1,max:5,recruit:true,title:'The salvage diver',nodes:{
     start:{t:'A man in a brass diving helmet is up to his chest in water, beating an eel swarm off with a crowbar. \u201cDon\u2019t just stand there!\u201d he shouts, muffled. \u201cThere\u2019s a fortune down here and I\u2019m not dying before I find it!\u201d',o:[
       {l:'Help him fight the eels',go:'fight'},
       {l:'Throw him a rope',check:['dex',13],ok:'rope',no:'ropeno'},
@@ -925,7 +928,7 @@ Object.assign(EVENTS,{
       {l:'Ask for his finder\u2019s fee up front',go:'fee'}]},
     join:{t:'\u201cPartners, then.\u201d He sketches the floor on the wall with chalk.',fx:()=>{E.recruit('oskar',6);E.farSight()},end:true},
     fee:{t:'He grumbles, but hands over a pouch. \u201cFine. Good luck finding anything without me.\u201d',fx:()=>E.gold(roll(3,10,25)),end:true}}},
-  reliquary:{ch:1,min:2,max:5,title:'Tidebreaker',nodes:{
+  reliquary:{ch:1,min:1,max:5,title:'Tidebreaker',nodes:{
     start:{t:'A trident hangs above a flooded altar, held up by nothing. Water spirals around its prongs. An inscription reads: THE SEA GIVES TO THOSE WHO GIVE TO IT.',o:[
       {l:'Throw 30 gold into the water',if:()=>G.gold>=30,go:'give'},
       {l:'Give a Healing Draught to the water',if:()=>G.pack.potion>0,go:'potion'},
@@ -936,7 +939,7 @@ Object.assign(EVENTS,{
     grab:{t:'You wrench it from the spiral. The water thrashes, then goes still. It is yours.',fx:()=>{E.give('tidebreaker');E.mood({nell:-1})},end:true},
     grabno:{t:'The water hurls you across the room.',fx:()=>E.dmg(3,6,0,'an angry sea'),next:'start'},
     leave:{t:'You leave the sea its trident.',end:true}}},
-  organ:{ch:1,min:2,max:5,title:'The drowned organ',nodes:{
+  organ:{ch:1,min:1,max:5,title:'The drowned organ',nodes:{
     start:{t:'A great organ rises from the water, its keys yellow as old teeth. Sheet music is pinned above it: a hymn, with one bar scratched out. A sealed door stands beside it.',o:[
       {l:'Play the hymn and guess the missing bar',check:['int',14],ok:'open',no:'wrong'},
       {l:'Play it from the heart',check:['cha',14],ok:'open',no:'wrong'},
@@ -947,7 +950,7 @@ Object.assign(EVENTS,{
     wrong:{t:'The wrong note echoes. The water stirs, and drowned things climb out of it.',fx:()=>E.fight(['thrall','thrall'])},
     wrongforce:{t:'The door holds, and the noise wakes something.',fx:()=>E.fight(['thrall','thrall'])},
     leave:{t:'You leave the organ to its silence.',end:true}}},
-  confession:{ch:1,min:3,max:6,title:'The confessional',nodes:{
+  confession:{ch:1,min:2,max:6,title:'The confessional',nodes:{
     start:{t:'A confessional stands in the water, its curtain drawn. A soft voice speaks from inside. \u201cYou have done things down here. Tell me, and be lighter.\u201d',o:[
       {l:'Confess honestly',check:['wis',12],ok:'honest',no:'honestno'},
       {l:'Lie',check:['cha',15],ok:'lie',no:'lieno'},
@@ -959,7 +962,7 @@ Object.assign(EVENTS,{
     curtain:{t:'A siren is crouched inside, grinning.',fx:()=>E.fight(['siren'])}}},
 
   /* chapter 3: the Ashen Spire */
-  knight:{ch:2,min:1,max:3,recruit:true,title:'Dragon food',nodes:{
+  knight:{ch:2,min:1,max:5,recruit:true,title:'Dragon food',nodes:{
     start:{t:'A knight in dented plate is chained to a post at the edge of a sheer drop, left as a meal for something with wings. Ash cultists stand guard, chanting. The knight looks up. \u201cIf you\u2019re going to help, now would be ideal.\u201d',o:[
       {l:'Attack the cultists',go:'fight'},
       {l:'Disguise yourself as a cultist and walk him out',check:['cha',15],ok:'disguise',no:'caught'},
@@ -976,7 +979,7 @@ Object.assign(EVENTS,{
     gift:{t:'He unbuckles a long, pale glaive. \u201cCut from a dragon\u2019s tooth. My order made it for this. Use it better than I did.\u201d',fx:()=>E.give('wyrmfang'),end:true},
     joined:{t:'Ilvar cleans the borrowed sword. \u201cIlvar, of the Order of the Scale. I owe you, and I mean to stay until it\u2019s paid.\u201d',end:true},
     leave:{t:'You walk on. Behind you, the chanting gets louder.',fx:()=>E.mood({brannoc:-2,ysolde:-1,nell:-1,zeph:-2}),end:true}}},
-  gargoyle:{ch:2,min:2,max:4,recruit:true,title:'The chained gargoyle',nodes:{
+  gargoyle:{ch:2,min:1,max:5,recruit:true,title:'The chained gargoyle',nodes:{
     start:{t:'A gargoyle is chained to the wall by iron through its wings. It is half turned to stone, and it watches you with one moving eye. \u201cThe cultists keep me as a doorstop,\u201d it rumbles. \u201cBreak the chains, and I will break things for you.\u201d',o:[
       {l:'Break the chains',check:['str',14],ok:'free',no:'freeno'},
       {l:'Pick the locks',check:['dex',14],ok:'free',no:'freeno'},
@@ -1000,7 +1003,7 @@ Object.assign(EVENTS,{
     take:{t:'You wrap the eggs in cloaks and carry them between you. They are warm, and they hum. Perhaps they will be worth something to someone.',fx:()=>{E.flag('eggs_taken');E.mood({oskar:2,pip:2})},end:true},
     takeno:{t:'One egg slips and cracks. Something small and furious crawls out.',fx:()=>E.fight(['salamander'])},
     leave:{t:'You leave the eggs to their warmth.',fx:()=>E.mood({zeph:1,nell:1}),end:true}}},
-  dawn:{ch:2,min:2,max:5,title:'Dawnlance',nodes:{
+  dawn:{ch:2,min:1,max:5,title:'Dawnlance',nodes:{
     start:{t:'A shaft of light falls through a crack in the spire onto a burned shrine. In the light lies a lance, untouched by the ash around it. The light is fading as the sun moves.',o:[
       {l:'Kneel and pray before taking it',check:['wis',13],ok:'got',no:'late'},
       {l:'Grab it before the light goes',check:['dex',14],ok:'got',no:'late'},
