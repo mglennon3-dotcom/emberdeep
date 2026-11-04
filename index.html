@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 31</p>
+  <p class="build">Emberdeep · build 32</p>
 </div>
 
 <script>
@@ -305,6 +305,33 @@ const HEAVY=new Set(['greatsword','greataxe','battleaxe','warhammer','longsword'
 const sub=id=>G&&G.party&&G.party[0]&&G.party[0].sub===id;
 const subInfo=h=>h.sub?(SUBCLASSES[h.cls]||[]).find(x=>x.id===h.sub):null;
 const EXPERTISE={rogue:'dex',bard:'cha',ranger:'wis'};
+const SKILLS={athletics:'str',acrobatics:'dex',sleight:'dex',stealth:'dex',arcana:'int',history:'int',investigation:'int',nature:'int',religion:'wis',animal:'wis',insight:'wis',medicine:'wis',perception:'wis',survival:'wis',deception:'cha',intimidation:'cha',performance:'cha',persuasion:'cha'};
+const SKILL_NAME={athletics:'Athletics',acrobatics:'Acrobatics',sleight:'Sleight of Hand',stealth:'Stealth',arcana:'Arcana',history:'History',investigation:'Investigation',nature:'Nature',religion:'Religion',animal:'Animal Handling',insight:'Insight',medicine:'Medicine',perception:'Perception',survival:'Survival',deception:'Deception',intimidation:'Intimidation',performance:'Performance',persuasion:'Persuasion'};
+const CLASS_SKILLS={
+  barbarian:{prof:['athletics','intimidation','perception','survival']},
+  bard:{prof:['persuasion','performance','deception','insight'],exp:['persuasion','performance']},
+  cleric:{prof:['medicine','religion','insight','persuasion']},
+  druid:{prof:['nature','medicine','survival','perception','animal']},
+  fighter:{prof:['athletics','intimidation','perception','acrobatics']},
+  monk:{prof:['acrobatics','stealth','insight','athletics']},
+  paladin:{prof:['athletics','persuasion','religion','intimidation']},
+  ranger:{prof:['perception','survival','stealth','nature','animal'],exp:['perception']},
+  rogue:{prof:['stealth','sleight','investigation','deception','perception','acrobatics'],exp:['stealth','sleight']},
+  sorcerer:{prof:['arcana','persuasion','deception','intimidation']},
+  warlock:{prof:['arcana','deception','intimidation','investigation']},
+  wizard:{prof:['arcana','investigation','history','insight']},
+};
+const SAVE_PROF={barbarian:['str','con'],bard:['dex','cha'],cleric:['wis','cha'],druid:['int','wis'],fighter:['str','con'],monk:['str','dex'],paladin:['wis','cha'],ranger:['str','dex'],rogue:['dex','int'],sorcerer:['con','cha'],warlock:['wis','cha'],wizard:['int','wis']};
+const SKILL_RULES=[[/stealth|sneak|hide|creep/,'stealth'],[/lock|pick|steal|pocket|snatch|grab/,'sleight'],[/search|trap|investig|study|pattern|examine/,'investigation'],[/bluff|lie|deceiv|disguise/,'deception'],[/intimidat|threat|smash/,'intimidation'],[/persua|convince|haggle|bargain|talk|promise|swear|trade|calm|wait|shout|ask/,'persuasion'],[/taunt|sing|play|perform|heart|dice/,'performance'],[/pray|bless|bow|kneel/,'religion'],[/leg|wound|medic|bleed|set his/,'medicine'],[/hint|insight|sense|show you/,'insight'],[/torch|drive|scare/,'animal'],[/climb|break|force|pull|swim|lift|wrestle|bellows|finish|loom|intimidate/,'athletics'],[/throw|cut|rope|dodge|tumble|leap|run/,'acrobatics'],[/think|puzzle|riddle|recall|hymn/,'investigation'],[/listen|spot|notice|look/,'perception']];
+function skillFor(stat,label){
+  if(SKILLS[stat])return stat;
+  const L=(label||'').toLowerCase();if(stat==='con'||/\bsave\b/.test(L))return null;
+  for(const [re,sk] of SKILL_RULES)if(re.test(L)&&SKILLS[sk]===stat)return sk;
+  return {str:'athletics',dex:'acrobatics',int:'investigation',wis:'insight',cha:'persuasion'}[stat]||null;
+}
+const ckClass=m=>m.hero?m.cls:ckOf(m);
+function skillBonus(m,sk){const cs=CLASS_SKILLS[ckClass(m)]||{prof:[]};return m.stats[SKILLS[sk]]+(cs.prof.includes(sk)?prof():0)+((cs.exp||[]).includes(sk)?prof():0)}
+function profSave(m,stat){return (SAVE_PROF[ckClass(m)]||[]).includes(stat)}
 const COMPS={
   brannoc:{name:'Brannoc',title:'dwarf smith',cls:'Fighter',role:'tank',hd:10,ac:17,stats:{str:3,dex:0,con:3,int:0,wis:1,cha:0},weapon:'warhammer',col:'#e0a060',blurb:'Stands in front. Monsters go for him first.'},
   ysolde:{name:'Ysolde',title:'priest of the Lantern',cls:'Cleric',role:'healer',hd:8,ac:15,stats:{str:1,dex:0,con:1,int:1,wis:3,cha:2},weapon:'mace',col:'#f2e6a0',blurb:'Heals whoever is worst hurt. Fallen allies always pull through.'},
@@ -441,7 +468,7 @@ const hasCond=(m,c)=>!!(m.cond&&m.cond[c]>0);
 const cantAct=m=>hasCond(m,'paralyzed')||hasCond(m,'charmed');
 const atkDis=m=>hasCond(m,'poisoned')||hasCond(m,'frightened')||hasCond(m,'restrained')||hasCond(m,'prone');
 const condList=m=>Object.entries(m.cond||{}).filter(([,v])=>v>0).map(([k])=>k);
-const saveBonus=(m,stat)=>m.stats[stat]+(m.hero&&(m.feats||[]).includes('resilient')?2:0);
+const saveBonus=(m,stat)=>m.stats[stat]+(profSave(m,stat)?prof():0)+(m.hero&&(m.feats||[]).includes('resilient')?2:0);
 function saveVs(m,stat,dc,label){const rl=roll(1,20),b=saveBonus(m,stat),tot=rl+b,ok=rl!==1&&(rl===20||tot>=dc);return{ok,det:`${stat.toUpperCase()} save d20 ${rl}${sgn(b)}=${tot} vs DC ${dc}`}}
 function addCond(t,c,rounds){t.cond=t.cond||{};t.cond[c]=Math.max(t.cond[c]||0,rounds)}
 function tickConds(){for(const p of G.party){if(!p.cond)continue;for(const k of Object.keys(p.cond)){if(p.cond[k]>0){p.cond[k]--;if(!p.cond[k])log(`${p.hero?'You are':p.name+' is'} no longer ${COND_TEXT[k]}.`,'sys')}}}}
@@ -729,7 +756,7 @@ function retag(r){const counts={},seen={},ord=['first','second','third','fourth'
 const DIFFS=[
   {name:'Story',tier:0,heroW:1.5,focus:0},
   {name:'Normal',tier:1,heroW:2,focus:0},
-  {name:'Hard',tier:2,heroW:2.2,focus:.15},
+  {name:'Hard',tier:2,heroW:2.35,focus:.22},
   {name:'Deadly',tier:3,heroW:3,focus:.5},
 ];
 const diff=()=>DIFFS[G&&G.diff!=null?G.diff:1];
@@ -750,15 +777,27 @@ function newItem(k){
 function helperFor(stat){
   let best=null;for(const c of comps()){if(c.down||c.loyalty<=1)continue;if(c.stats[stat]>=2&&(!best||c.stats[stat]>best.stats[stat]))best=c}return best;
 }
-function check(stat,dc,label){
-  const h=H();let rl=roll(1,20);const m=h.stats[stat],exp=(EXPERTISE[h.cls]===stat?3:0)+(sub('lore')?2:0)+(sub('thief')&&/Search|trap/i.test(label||'')?3:0),help=helperFor(stat),hb=help?2:0;
+function rollBonus(stat,label){
+  const h=H(),isSave=/\bsave\b/i.test(label||''),sk=isSave?null:skillFor(stat,label),ab=sk?SKILLS[sk]:stat;
+  const cs=CLASS_SKILLS[h.cls]||{prof:[]},parts=[];let b=h.stats[ab];parts.push(`${sgn(h.stats[ab])} ${ab.toUpperCase()}`);
+  if(isSave&&profSave(h,ab)){b+=prof();parts.push(`+${prof()} proficiency`)}
+  if(isSave&&feat('resilient')){b+=2;parts.push('+2 resilient')}
+  if(sk&&cs.prof.includes(sk)){b+=prof();parts.push(`+${prof()} ${SKILL_NAME[sk]}`)}
+  if(sk&&(cs.exp||[]).includes(sk)){b+=prof();parts.push(`+${prof()} expertise`)}
+  if(!isSave&&sub('lore')){b+=2;parts.push('+2 lore')}
+  if(sub('thief')&&/Search|trap/i.test(label||'')){b+=3;parts.push('+3 thief')}
+  const help=helperFor(ab);if(help){b+=2;parts.push(`+2 ${help.name}`)}
+  return {b,parts,sk,ab,isSave};
+}
+function check(stat,dc,label,hint){
+  const h=H();let rl=roll(1,20);const R=rollBonus(stat,(label||'')+' '+(hint||''));
   const target=typeof dc==='function'?dc():dc;
-  let tot=rl+m+exp+hb,ok=rl===20||(rl!==1&&tot>=target);
-  if(!ok&&feat('lucky')&&h.luck>0){h.luck--;const r2=roll(1,20);G.log.push({t:'p',cls:'sys',text:`Lucky! You reroll the ${rl} and get a ${r2}. (${h.luck} luck left)`});rl=r2;tot=rl+m+exp+hb;ok=rl===20||(rl!==1&&tot>=target)}
+  let tot=rl+R.b,ok=rl===20||(rl!==1&&tot>=target);
+  if(!ok&&feat('lucky')&&h.luck>0){h.luck--;const r2=roll(1,20);G.log.push({t:'p',cls:'sys',text:`Lucky! You reroll the ${rl} and get a ${r2}. (${h.luck} luck left)`});rl=r2;tot=rl+R.b;ok=rl===20||(rl!==1&&tot>=target)}
   G._last={rl,tot,target};
-  const parts=[`d20 ${rl}`,sgn(m)+' '+stat.toUpperCase()];if(exp)parts.push(`${sgn(exp)} ${sub('lore')?'lore/':''}expertise`);if(help)parts.push(`+2 ${help.name}`);
-  G.log.push({t:'p',cls:'roll '+(ok?'ok':'no'),text:`${label||STATNAME[stat]+' check'}: ${parts.join(' ')} = ${tot} vs ${typeof dc==='function'?'their '+target:'DC '+target}. ${rl===20?'Natural 20! ':rl===1?'Natural 1. ':''}${ok?'Success.':'Failure.'}`});
-  if(ok&&stat==='int'&&G.party.some(m=>m.id==='tessaly'))mood({tessaly:1});
+  const name=label&&!/check$/.test(label)?label:R.isSave?`${STATNAME[R.ab]} save`:R.sk?`${SKILL_NAME[R.sk]} (${STATNAME[R.ab]})`:`${STATNAME[R.ab]} check`;
+  G.log.push({t:'p',cls:'roll '+(ok?'ok':'no'),text:`${name}: d20 ${rl} ${R.parts.join(' ')} = ${tot} vs ${typeof dc==='function'?'their '+target:'DC '+target}. ${rl===20?'Natural 20! ':rl===1?'Natural 1. ':''}${ok?'Success.':'Failure.'}`});
+  if(ok&&R.ab==='int'&&G.party.some(m=>m.id==='tessaly'))mood({tessaly:1});
   return ok;
 }
 
@@ -1530,7 +1569,7 @@ function enterRoom(k){
     return;
   }
   const h=H(),rl=roll(1,20),loud=h.cls==='ranger'?0:comps().filter(c=>!['skirmisher','archer'].includes(c.role)).length;
-  const b=h.stats.dex+(isRogue()?3:0)-loud+(armorOf(h)&&armorOf(h).stealth?3:0)+(sub('shadow')?3:0),dc=11+Math.floor(G.depth/2),tot=rl+b;
+  const b=skillBonus(h,'stealth')-loud+(armorOf(h)&&armorOf(h).stealth?3:0)+(sub('shadow')?3:0),dc=11+Math.floor(G.depth/2),tot=rl+b;
   const det=`Stealth d20 ${rl}${sgn(b)}${loud?` (party noise −${loud})`:''} = ${tot} vs DC ${dc}`;
   if(rl!==1&&tot>=dc){log(`You move quietly. ${r.mons.length>1?'They have':'It has'} not noticed you.`,'magic',det);return}
   r.mons.forEach(m=>m.aware=true);G.fighting=true;
@@ -1857,7 +1896,7 @@ function readCinders(){
 }
 function readFarSight(){G.pack.map--;E.farSight();log(`The Scroll of Far Sight crumbles, and for a moment you see the whole floor laid out like a map.`,'magic')}
 function flee(){
-  const h=H(),r=room(),dc=10+r.mons.filter(m=>m.aware).length,rl=roll(1,20),b=h.stats.dex+(isRogue()?3:0),tot=rl+b;
+  const h=H(),r=room(),dc=10+r.mons.filter(m=>m.aware).length,rl=roll(1,20),b=skillBonus(h,'acrobatics'),tot=rl+b;
   const back=G.prev&&Object.values(r.exits).includes(G.prev)?G.prev:Object.values(r.exits)[0];
   const det=`d20 ${rl}${sgn(b)}=${tot} vs DC ${dc}`;
   if(rl!==1&&tot>=dc){
@@ -2036,10 +2075,12 @@ function equip(i,m){
 }
 
 /* ---------- choices ---------- */
-function subCheck(stat,dc){
-  const h=H(),help=helperFor(stat),b=h.stats[stat]+(EXPERTISE[h.cls]===stat?3:0)+(help?2:0);
-  return `<b>${stat.toUpperCase()} ${typeof dc==='number'?'DC '+dc:'contest'}</b> · you roll d20${sgn(b)}${help?` (with ${help.name})`:''}`;
+function subCheck(stat,dc,label){
+  const R=rollBonus(stat,label||''),help=helperFor(R.ab);
+  const nm=R.isSave?`${R.ab.toUpperCase()} save`:R.sk?SKILL_NAME[R.sk]:R.ab.toUpperCase();
+  return `<b>${nm} ${typeof dc==='number'?'DC '+dc:'contest'}</b> · you roll d20${sgn(R.b)}${help?` (with ${help.name})`:''}`;
 }
+
 function buildChoices(){
   const C=[];
   const add=(label,act,o={})=>C.push({label,act,cmds:o.cmds||[],sub:o.sub||'',kind:o.kind||'',combat:!!o.combat,echo:o.echo!==false});
@@ -2129,7 +2170,7 @@ function buildChoices(){
       if(o.if&&!o.if(G.ev))continue;
       const label=txt(o.l,G.ev);
       if(!label)continue;
-      add(label,()=>{if(o.check){const ok=check(o.check[0],o.check[1],o.check[2]);evGo(ok?o.ok:o.no)}else evGo(o.go)},{sub:o.check?(o.sub?txt(o.sub,G.ev)+' · ':'')+subCheck(o.check[0],o.check[1]):(txt(o.sub,G.ev)||''),kind:'ev'});
+      add(label,()=>{if(o.check){const ok=check(o.check[0],o.check[1],o.check[2],label);evGo(ok?o.ok:o.no)}else evGo(o.go)},{sub:o.check?(o.sub?txt(o.sub,G.ev)+' · ':'')+subCheck(o.check[0],o.check[1],(o.check[2]||'')+' '+label):(txt(o.sub,G.ev)||''),kind:'ev'});
     }
     return C;
   }
@@ -2157,12 +2198,12 @@ function buildChoices(){
     if(r.event&&!G.ev)add('Return to the encounter',()=>startEvent(r.event),{sub:'Pick up where you left off',kind:'ev'});
     const f=r.feature;
     if(f&&!f.used){
-      if(f.k==='chest'){if(!f.checked)add('Check the chest for traps',()=>feature('check'),{cmds:['check chest','check','disarm'],sub:subCheck('int',12)});add('Open the chest',()=>feature('open'),{cmds:['open chest','open'],sub:f.checked&&!f.trap?'No traps found':'Could be trapped'})}
+      if(f.k==='chest'){if(!f.checked)add('Check the chest for traps',()=>feature('check'),{cmds:['check chest','check','disarm'],sub:subCheck('int',12,'Check for traps')});add('Open the chest',()=>feature('open'),{cmds:['open chest','open'],sub:f.checked&&!f.trap?'No traps found':'Could be trapped'})}
       if(f.k==='fountain')add('Drink from the fountain',()=>feature('fountain'),{cmds:['drink fountain','fountain','drink water'],sub:'Most fountains here are clean'});
-      if(f.k==='altar'){if(G.gold>=10)add('Leave 10 gold at the altar',()=>feature('offer'),{cmds:['offer','leave gold','pay'],sub:'+1 to hit for the whole party this floor'});add('Pray at the altar',()=>feature('pray'),{cmds:['pray','kneel'],sub:subCheck('wis',11)})}
+      if(f.k==='altar'){if(G.gold>=10)add('Leave 10 gold at the altar',()=>feature('offer'),{cmds:['offer','leave gold','pay'],sub:'+1 to hit for the whole party this floor'});add('Pray at the altar',()=>feature('pray'),{cmds:['pray','kneel'],sub:subCheck('wis',11,'Prayer')})}
       if(f.k==='bones')add('Search the fallen adventurer',()=>feature('bones'),{cmds:['search bones','bones','loot bones'],sub:'They won’t need it now'});
     }
-    if(!r.searched)add('Search the room',search,{cmds:['search','search room','look around'],sub:subCheck('int',12)+' · a roll of 5 or less backfires'});
+    if(!r.searched)add('Search the room',search,{cmds:['search','search room','look around'],sub:subCheck('int',12,'Search the room')+' · a roll of 5 or less backfires'});
     if(r.stairs)add(chap().stairs==='up'?'Climb the stairs':'Descend the stairs',descend,{cmds:['descend','down','stairs','go down','d','climb','up','go up'],sub:`To floor ${G.depth+1}. Long rest first: full HP and abilities.`,kind:'prime'});
     if(!G.restUsed&&G.party.some(m=>m.hp<m.maxhp))add('Take a short rest',rest,{cmds:['rest','sleep','short rest','camp'],sub:`${2-(G.rests||0)} of 2 left this floor. ${h.cls==='fighter'?'Heals everyone to full':'Heals everyone by half'}, if nothing finds you`});
     if(h.charges>0&&h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${h.charges} left`});
@@ -2300,7 +2341,7 @@ function renderSheet(){
   </dl>
   ${h.armor?`<div class="wpn"><b class="${ARMORS[h.armor.id].mythic?'m':''}">${cap(aname(h.armor))}</b> · +${adef(h.armor).bonus} AC${ARMORS[h.armor.id].lore?`<br><span style="color:var(--muted);font-size:.8rem">${ARMORS[h.armor.id].lore.replace(/^\+\d [^.]*\. /,'')}</span>`:''}</div>`:''}
   <div class="wpn"><b class="${wd.mythic?'m':''}">${cap(wname(h.weapon))}</b> · ${wdice(h,h.weapon)}${wd.lore?`<br><span style="color:var(--muted);font-size:.8rem">${wd.lore}</span>`:''}</div>
-  <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p>${(h.feats||[]).length?`<p><b>Feats:</b> ${h.feats.map(f=>FEATS[f].name+(f==='lucky'?` (${h.luck??0} luck)`:'')).join(', ')}</p>`:''}${subInfo(h)?`<p><b>${subInfo(h).name}:</b> ${subInfo(h).desc}</p>`:G.lvl<3?`<p style="color:var(--muted)">At level 3 you choose a subclass.</p>`:''}</div>
+  <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p><p style="color:var(--muted)"><b style="color:var(--ink-soft)">Skills:</b> ${(CLASS_SKILLS[h.cls]||{prof:[]}).prof.map(k=>`${SKILL_NAME[k]} ${sgn(skillBonus(h,k))}`).join(', ')}<br><b style="color:var(--ink-soft)">Saves:</b> ${(SAVE_PROF[h.cls]||[]).map(k=>`${k.toUpperCase()} ${sgn(saveBonus(h,k))}`).join(', ')}</p>${(h.feats||[]).length?`<p><b>Feats:</b> ${h.feats.map(f=>FEATS[f].name+(f==='lucky'?` (${h.luck??0} luck)`:'')).join(', ')}</p>`:''}${subInfo(h)?`<p><b>${subInfo(h).name}:</b> ${subInfo(h).desc}</p>`:G.lvl<3?`<p style="color:var(--muted)">At level 3 you choose a subclass.</p>`:''}</div>
   <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}${condList(m).length?` · <span style="color:var(--blood)">${condList(m).join(', ')}</span>`:''}${m.drain?` · drained`:''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
   <div><h3>Pack <span class="hint">tap an item to use it</span></h3><ul class="pack">
     ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']].map(([k,n])=>k==='whet'&&!G.pack.whet?'':G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
@@ -2352,7 +2393,7 @@ function sellItem(key,mult=1){
 }
 function haggle(key){
   const base=sellPrice(key),who=G.ev&&G.ev.id==='merchant'?'The bone merchant':'The trader';
-  const ok=check('cha',12,'Persuasion (haggle)'),L=G._last;
+  const ok=check('persuasion',12,'Persuasion (haggle)'),L=G._last;
   if(L.rl<=5){G.ev.insulted=true;log(`${who} looks deeply offended. \u201cFor that, you get less.\u201d No more haggling with them this visit.`,'hurt');sellItem(key,.75);return}
   if(!ok){log(`${who} doesn\u2019t budge.`,'miss');sellItem(key,1);return}
   if(L.rl===20||L.tot>=L.target+5){log(`${who} throws up their hands and pays full value.`,'crit');sellItem(key,2);return}
@@ -2396,7 +2437,7 @@ function itemChoices(add,inFight){
   if(atMerchant()&&!inFight&&sellPrice(key)>0){
     const base=sellPrice(key);
     add(`Sell it for ${base} gold`,()=>{back();sellItem(key)},{cmds:['sell','sell it'],sub:`You have ${G.gold} gold`,kind:'loot'});
-    if(!G.ev.insulted)add('Haggle for more',()=>{back();haggle(key)},{cmds:['haggle','bargain'],sub:`${subCheck('cha',12)} · up to ${base*2} gold, or less if it goes badly`});
+    if(!G.ev.insulted)add('Haggle for more',()=>{back();haggle(key)},{cmds:['haggle','bargain'],sub:`${subCheck('cha',12,'Persuasion (haggle)')} · up to ${base*2} gold, or less if it goes badly`});
   }
   if(from==='gear')add('Back to pack',()=>{G.menu='gear'},{cmds:['back'],echo:false});
   add('Close',()=>{G.menu=null},{cmds:['close','done'],echo:false,kind:from==='gear'?'':'prime'});
