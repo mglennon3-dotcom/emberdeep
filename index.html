@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 27</p>
+  <p class="build">Emberdeep · build 28</p>
 </div>
 
 <script>
@@ -231,6 +231,20 @@ const WEAPONS={
   kingsbane:{name:'Kingsbane',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'radiant'],king:true,mythic:true,lore:'+2 sword reforged in the Ember Forge. +1d8 radiant, and its wounds stop the Hollow King from mending.'},
 };
 const wdef=w=>{const b=WEAPONS[w.id];return{...b,bonus:(b.bonus||0)+(w.plus||0)}};
+const ARMORS={
+  plain:{name:'armor',bonus:0},
+  emberplate:{name:'Emberplate',bonus:1,fire:true,mythic:true,lore:'+1 armor of blackened steel that is always warm. Fire deals half damage to its wearer.'},
+  thornmail:{name:'Thornmail',bonus:1,thorns:true,mythic:true,lore:'+1 armor covered in iron spikes. Monsters that hit its wearer take 1d6 piercing damage.'},
+  lanternmail:{name:'Lantern Mail',bonus:1,regen:true,mythic:true,lore:'+1 mail that glows faintly from within. Its wearer heals 2 HP every round of a fight.'},
+  shroud:{name:'Shroud of the Drowned',bonus:1,shroud:true,mythic:true,lore:'+1 grey silk that is never wet. Once per fight, a hit that would land on its wearer misses instead.'},
+  gravewatch:{name:'Gravewatch Mail',bonus:1,ward:true,mythic:true,lore:'+1 mail etched with closed eyes. Undead attack its wearer with disadvantage.'},
+  cloak:{name:'Cloak of the Unseen',bonus:1,stealth:true,mythic:true,lore:'+1 cloak that drinks the light. +3 to your Stealth when you wear it.'},
+  wyrmscale:{name:'Wyrmscale',bonus:2,dragon:true,mythic:true,lore:'+2 scale mail cut from a drake. Dragons and their kin deal half damage to its wearer.'},
+};
+const adef=a=>{const b=ARMORS[a.id];return{...b,bonus:(b.bonus||0)+(a.plus||0)}};
+const aname=a=>{const b=ARMORS[a.id];return b.mythic?(a.plus?`${b.name} +${b.bonus+a.plus}`:b.name):`+${a.plus||0} armor`};
+const armorOf=m=>m&&m.armor?adef(m.armor):null;
+const FIREY=new Set(['salamander','drake','wyrm']);
 const wname=w=>{const b=WEAPONS[w.id];return b.mythic?(w.plus?`${b.name} +${(b.bonus||0)+w.plus}`:b.name):(w.plus?`+${w.plus} ${b.name}`:b.name)};
 const wdice=(m,w)=>{const d=wdef(w);return dstr(d.n,d.d,statMod(m,w)+d.bonus)+(d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:'')};
 function statMod(m,w){const d=WEAPONS[w.id];if(d.stat==='finesse')return Math.max(m.stats.str,m.stats.dex);return m.stats[d.stat]}
@@ -354,6 +368,7 @@ const MONS=[
   {k:'owlbear',name:'owlbear',cr:3,hp:[7,10,21],ac:13,hit:7,dmg:[2,8,5],min:5,max:8,intro:'An owlbear tears at a carcass, feathers bristling, and turns its great hooked beak toward your light.'},
   {k:'minotaur',name:'minotaur',cr:3,hp:[9,10,36],ac:14,hit:6,dmg:[2,12,4],min:5,max:8,intro:'A minotaur paces the room, horns scraping the ceiling, snorting at the smell of you.'},
   {k:'wight',name:'wight',cr:3,hp:[6,8,18],ac:14,hit:4,dmg:[2,8,2],min:5,max:8,intro:'A wight in rusted mail stands among the dead, eyes burning with cold hate.'},
+  {k:'animated',name:'suit of animated armor',cr:1,hp:[6,8,6],ac:18,hit:4,dmg:[2,6,2],min:2,max:8,intro:'An empty suit of armor stands against the wall. As your light falls on it, the helmet turns to follow you.'},
   {k:'wraith',name:'wraith',cr:5,hp:[9,8,27],ac:13,hit:6,dmg:[4,8,3],min:6,max:8,intro:'A wraith drifts above the floor. Your torch gutters in its cold.'},
 ];
 const MONS2=[
@@ -389,12 +404,13 @@ const ITEMS={
   ward:{name:'Ironbark Charm',a:'an',w:6},
   vigor:{name:'Elixir of Vigor',a:'an',w:4},
   weapon:{name:'weapon',w:6},
+  armor:{name:'armor',w:3},
   crown:{name:'Ember Crown',a:'the',w:0},
   tidecrown:{name:'Tide Crown',a:'the',w:0},
   skycrown:{name:'Sky Crown',a:'the',w:0},
 };
-const itemName=it=>it.k==='gold'?`${it.amt} gold coins`:it.k==='weapon'?`a ${wname(it.w)}`:`${ITEMS[it.k].a} ${ITEMS[it.k].name}`;
-const itemShort=it=>it.k==='gold'?`${it.amt} gold`:it.k==='weapon'?`the ${wname(it.w)}`:`the ${ITEMS[it.k].name}`;
+const itemName=it=>it.k==='gold'?`${it.amt} gold coins`:it.k==='weapon'?`a ${wname(it.w)}`:it.k==='armor'?(ARMORS[it.a.id].mythic?aname(it.a):`a suit of ${aname(it.a)}`):`${ITEMS[it.k].a} ${ITEMS[it.k].name}`;
+const itemShort=it=>it.k==='gold'?`${it.amt} gold`:it.k==='weapon'?`the ${wname(it.w)}`:it.k==='armor'?(ARMORS[it.a.id].mythic?aname(it.a):`the ${aname(it.a)}`):`the ${ITEMS[it.k].name}`;
 
 const THEMES=[
   {upTo:2,name:'The Upper Cellars',
@@ -645,7 +661,7 @@ const comps=()=>G.party.slice(1);
 const living=()=>G.party.filter(m=>!m.down);
 const room=()=>G.rooms[G.cur];
 const prof=()=>2+Math.floor((G.lvl-1)/4);
-const ac=m=>m.acBase+(m.acb||0)+(G.party.some(p=>!p.down&&ckOf(p)==='paladin')?1:0);
+const ac=m=>m.acBase+(m.acb||0)+(m.armor?adef(m.armor).bonus:0)+(G.party.some(p=>!p.down&&ckOf(p)==='paladin')?1:0);
 const isRogue=()=>H().cls==='rogue';
 const sneakDice=()=>Math.ceil(G.lvl/2);
 const theM=m=>m.traitor?m.name:m.boss?(m.k==='king'?'the Hollow King':m.k==='abbess'?'the Drowned Abbess':'Vharzhul'):`the ${m.tag?m.tag+' ':''}${m.name}`;
@@ -668,9 +684,10 @@ const monDmg=()=>0;
 function setDiff(i){G.diff=i;try{localStorage.setItem('emberdeep-difficulty',String(i))}catch(e){}log(`Difficulty set to ${DIFFS[i].name}.`,'sys');save();render()}
 function makeMon(t){const hp=roll(...t.hp);return{k:t.k,name:t.name,cr:t.cr,hp,maxhp:hp,ac:t.ac,hit:t.hit,dmg:t.dmg.slice(),xp:XP_BY_CR[t.cr]||0,slow:!!t.slow,boss:!!t.boss,aware:false,tick:0,tag:'',scorched:false}}
 
-function pickItemKey(){const pool=Object.entries(ITEMS).filter(([k,v])=>v.w>0&&(k!=='weapon'||G.depth>=2));let r=rnd(pool.reduce((s,[,v])=>s+v.w,0));for(const [k,v] of pool){if((r-=v.w)<0)return k}return 'potion'}
+function pickItemKey(){const pool=Object.entries(ITEMS).filter(([k,v])=>v.w>0&&(k!=='weapon'||G.depth>=2)&&(k!=='armor'||G.depth>=3||(G.chapter||0)>0));let r=rnd(pool.reduce((s,[,v])=>s+v.w,0));for(const [k,v] of pool){if((r-=v.w)<0)return k}return 'potion'}
 function newItem(k){
   if(k==='gold')return{k,amt:roll(2,6,G.depth*4)};
+  if(k==='armor')return{k,a:{id:'plain',plus:G.depth>=6&&Math.random()<.4?2:1}};
   if(k==='weapon'){const id=pick(['shortsword','longsword','battleaxe','warhammer','spear','greatsword','dagger','longbow','staff']);return{k,w:{id,plus:G.depth>=6&&Math.random()<.4?2:1}}}
   return{k,amt:1};
 }
@@ -730,7 +747,7 @@ function turnHostile(c){
   G.party=G.party.filter(m=>m!==c);G.flags['traitor_'+c.id]=true;
   const w=wdef(c.weapon),caster=c.role==='caster',st=WEAPONS[c.weapon.id].stat;
   const mod=caster?c.stats[ckOf(c)==='wizard'?'int':'cha']:(st==='finesse'||st==='dex')?Math.max(c.stats.dex,c.stats.str):c.stats.str;
-  const m={k:'traitor',name:c.name,traitor:true,id:c.id,hp:Math.max(c.hp,Math.ceil(c.maxhp*.6)),maxhp:c.maxhp,ac:c.acBase,hit:prof()+mod+w.bonus,
+  const m={k:'traitor',name:c.name,traitor:true,id:c.id,hp:Math.max(c.hp,Math.ceil(c.maxhp*.6)),maxhp:c.maxhp,ac:c.acBase+(c.armor?adef(c.armor).bonus:0),armor:c.armor,hit:prof()+mod+w.bonus,
     dmg:caster?[G.lvl>=5?2:1,10,0]:[w.n,w.d,mod+w.bonus],xp:XP_BY_CR[[.5,1,2,3,4,5,6,7,8,9,10][Math.min(10,Math.floor(G.lvl/2))]]||100,slow:false,boss:false,aware:true,tick:0,tag:'',scorched:false,weapon:c.weapon};
   room().mons.push(m);G.fighting=true;
 }
@@ -748,6 +765,7 @@ const E={
     if(extra)log(`${extra>1?'More of them come':'Another one comes'} running at the sound. A bigger party draws a bigger crowd.`,'threat');
     G.ev.waiting=true;G.ev.after=after;if(!surprise)G.fighting=true;
   },
+  giveArmor(id){take({k:'armor',a:{id,plus:0}},true)},
   give(id){G.pack.weapons.push({id,plus:0});const d=WEAPONS[id];log(`You gain ${d.name}. ${d.lore}`,'mythic');log(`Equip it, or hand it to a companion, from Party & gear.`,'sys')},
   item(k){take(newItem(k),true)},
   gold(n){if(n==null)return G.gold;G.gold=Math.max(0,G.gold+n);return G.gold},
@@ -922,17 +940,19 @@ const EVENTS={
     after:{t:'With its guards destroyed, the hammer slides loose from the lid.',fx:()=>E.give('gravewarden'),end:true},
     leave:{t:'You leave the knight to her rest.',end:true}}},
 
-  merchant:{ch:'any',min:1,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden'].filter(id=>!owns(id)))||null},nodes:{
-    start:{t:ev=>`A skeleton in a merchant’s velvet hat has set up a stall on a coffin lid. “Customers! Living ones! Everything must go.”${ev.stock?` In pride of place lies ${WEAPONS[ev.stock].name}: ${WEAPONS[ev.stock].lore}`:''}`,o:[
+  merchant:{ch:'any',min:1,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden'].filter(id=>!owns(id)))||null;ev.astock=pick(['emberplate','cloak'].filter(id=>!ownsArmor(id)))||null},nodes:{
+    start:{t:ev=>`A skeleton in a merchant’s velvet hat has set up a stall on a coffin lid. “Customers! Living ones! Everything must go.”${ev.stock?` In pride of place lies ${WEAPONS[ev.stock].name}: ${WEAPONS[ev.stock].lore}`:''}${ev.astock?` Hanging behind him is ${ARMORS[ev.astock].name}.`:''}`,o:[
       {l:'Buy a Healing Draught',sub:'40 gold',if:()=>G.gold>=40,go:'potion'},
       {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'scroll'},
       {l:ev=>`Buy ${WEAPONS[ev.stock].name}`,sub:'90 gold',if:ev=>ev.stock&&G.gold>=90,go:'weapon'},
+      {l:ev=>`Buy ${ARMORS[ev.astock].name}`,sub:ev=>`110 gold · ${ARMORS[ev.astock].lore}`,if:ev=>ev.astock&&G.gold>=110,go:'armorbuy'},
       {l:'Haggle for a discount on the weapon',sub:'Pay 50 if it works',if:ev=>ev.stock&&G.gold>=50&&!ev.haggled,check:['cha',14],ok:'deal',no:'nodeal'},
       {l:'Try to steal the weapon',if:ev=>ev.stock,check:['dex',15],ok:'stole',no:'caught'},
       {l:'Sell from your pack',sub:'He pays half what things are worth',if:()=>sellables()>0,go:'sell'},
       {l:'Leave the stall',go:'leave'}]},
     potion:{t:'“A fine choice!”',fx:()=>{E.gold(-40);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'start'},
     scroll:{t:'“Handle it carefully.”',fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'start'},
+    armorbuy:{t:'“It suits you. Everything suits the living.”',fx:()=>{E.gold(-110);E.giveArmor(G.ev.astock);G.ev.astock=null},next:'start'},
     weapon:{t:'“It was a pleasure, truly.”',fx:()=>{E.gold(-90);E.give(G.ev.stock);G.ev.stock=null},next:'start'},
     deal:{t:'“You drive a hard bargain for someone with skin.”',fx:()=>{E.gold(-50);E.give(G.ev.stock);G.ev.stock=null},next:'start'},
     nodeal:{t:'“Ninety. I have to eat. Well, no, I don’t. But ninety.”',fx:()=>{G.ev.haggled=true},next:'start'},
@@ -1237,6 +1257,36 @@ const RIDDLES=[
 const riddle=ev=>RIDDLES[ev.r??0];
 function riddleOpt(ev,i){const R=riddle(ev),opts=[R.a,...R.w],o=ev.order||[0,1,2];return cap(opts[o[i]])}
 function riddlePick(ev,i){const o=ev.order||[0,1,2];return o[i]===0?'right':'wrong'}
+Object.assign(EVENTS,{
+  armory:{min:2,max:7,title:'The waiting armor',nodes:{
+    start:{t:'A suit of spiked armor stands on a rack in the corner, scorched black. When you step closer, the empty helmet turns to follow you.',o:[
+      {l:'Bow to it, as you would to a knight',check:['wis',13],ok:'bow',no:'fight'},
+      {l:'Challenge it',go:'fight'},
+      {l:'Leave it on its rack',go:'leave'}]},
+    bow:{t:'The armor is still for a long moment. Then it kneels, comes apart piece by piece, and lies at your feet, waiting to be worn.',fx:()=>E.giveArmor('thornmail'),end:true},
+    fight:{t:'The armor steps down off its rack and raises its fists.',fx:()=>E.fight(['animated'],'won')},
+    won:{t:'The armor collapses. Its spikes are still sharp. Whatever moved it is gone, but the metal remembers how to bite.',fx:()=>E.giveArmor('thornmail'),end:true},
+    leave:{t:'Its helmet watches you all the way to the door.',end:true}}},
+  vestry:{ch:1,min:1,max:5,title:'The dry shroud',nodes:{
+    start:{t:'The abbess\u2019s vestry is flooded to the waist. On a hook above the water hangs a shroud of grey silk, perfectly dry. Water drips around it and never touches it.',o:[
+      {l:'Take it down',check:['wis',13,'Wisdom save'],ok:'took',no:'grip'},
+      {l:'Pray over it first',check:['wis',11],ok:'blessed',no:'grip'},
+      {l:'Leave it hanging',go:'leave'}]},
+    took:{t:'The silk is cold and light as breath. It folds itself over your arm.',fx:()=>E.giveArmor('shroud'),end:true},
+    blessed:{t:'As you pray, the shroud slides from its hook into your hands, as if it had been waiting for someone to ask.',fx:()=>{E.giveArmor('shroud');E.mood({nell:1,ysolde:1})},end:true},
+    grip:{t:'The shroud wraps itself around your throat and squeezes before it lets go. It is yours now, whether you like it or not.',fx:()=>{E.dmg(2,6,0,'a drowned shroud');if(!G.over)E.giveArmor('shroud')},end:true},
+    leave:{t:'You leave it dry above the water.',end:true}}},
+  scalesmith:{ch:2,min:2,max:5,title:'The unfinished coat',nodes:{
+    start:{t:'Among a drift of shed drake scales, a dwarf\u2019s skeleton sits at a portable forge. Across its knees lies a coat of scale mail, almost finished. The last row of scales is missing.',o:[
+      {l:'Finish the dwarf\u2019s work',check:['str',14],ok:'done',no:'cracked'},
+      {l:'Study the pattern and finish it carefully',check:['int',14],ok:'done',no:'cracked'},
+      {l:'Take it as it is',sub:'Plain +1 armor',go:'asis'},
+      {l:'Leave the dead smith in peace',go:'leave'}]},
+    done:{t:'You fit the last scales and hammer them home. The coat ripples like a living thing and settles. Wyrmscale.',fx:()=>{E.giveArmor('wyrmscale');E.mood({brannoc:1})},end:true},
+    cracked:{t:'The scales crack under the hammer and a gout of old heat burns your hands. What is left is still good armor, but no more than that.',fx:()=>{E.dmg(2,6,0,'a forge');if(!G.over)take({k:'armor',a:{id:'plain',plus:1}},true)},end:true},
+    asis:{t:'You lift the coat from the dwarf\u2019s knees. Unfinished, it is still good armor.',fx:()=>take({k:'armor',a:{id:'plain',plus:1}},true),end:true},
+    leave:{t:'You leave the smith to finish it in another life.',end:true}}},
+});
 const payoff=()=>20+G.depth*10;
 function leaveParty(id){const c=G.party.find(m=>m.id===id);if(!c)return;G.party=G.party.filter(m=>m!==c);G.flags['left_party_'+id]=true}
 function processQueue(){
@@ -1247,6 +1297,7 @@ function processQueue(){
   log(EVENTS[q.id].title,'big');
   startEvent(q.id,q);
 }
+function ownsArmor(id){return (G.pack.armor||[]).some(a=>a.id===id)||G.party.some(m=>m.armor&&m.armor.id===id)}
 function owns(id){return G.pack.weapons.some(w=>w.id===id)||G.party.some(m=>m.weapon.id===id)}
 function evNode(){return G.ev&&EVENTS[G.ev.id].nodes[G.ev.node]}
 const txt=(v,ev)=>typeof v==='function'?v(ev):v;
@@ -1271,7 +1322,7 @@ function compCard(m,heading){
   const st=STATS.map(k=>`${k.toUpperCase()} ${sgn(m.stats[k])}`).join(' · ');
   return `<div class="ccard2"><div class="top"><b style="color:${COMPS[m.id].col}">${m.name}</b><span>${heading||(inParty?'In your party':'Could join you')}</span></div>
   <div class="sub">${cap(m.title)} · ${COMP_BUILDS[m.id].species}</div>
-  <div class="row"><span><b>${C.name}</b></span><span>HP ${inParty?m.hp+'/':''}${m.maxhp}</span><span>AC ${ac(m)}</span><span class="${w.mythic?'m':''}">${cap(wname(m.weapon))} ${wdice(m,m.weapon)}</span></div>
+  <div class="row"><span><b>${C.name}</b></span><span>HP ${inParty?m.hp+'/':''}${m.maxhp}</span><span>AC ${ac(m)}</span><span class="${w.mythic?'m':''}">${cap(wname(m.weapon))} ${wdice(m,m.weapon)}</span>${m.armor?`<span class="${ARMORS[m.armor.id].mythic?'m':''}">${cap(aname(m.armor))}</span>`:''}</div>
   <div class="stl">${st}</div>
   <div><b>${C.abil.name}:</b> ${C.abil.desc}</div>
   <div><b>Values ${VALUES[m.id]}:</b> ${VALUE_HINT[VALUES[m.id]]}${inParty?` Currently <b>${LOYAL_WORD(m.loyalty)}</b>.`:''}</div>
@@ -1394,7 +1445,7 @@ function enterRoom(k){
     return;
   }
   const h=H(),rl=roll(1,20),loud=h.cls==='ranger'?0:comps().filter(c=>!['skirmisher','archer'].includes(c.role)).length;
-  const b=h.stats.dex+(isRogue()?3:0)-loud,dc=11+Math.floor(G.depth/2),tot=rl+b;
+  const b=h.stats.dex+(isRogue()?3:0)-loud+(armorOf(h)&&armorOf(h).stealth?3:0),dc=11+Math.floor(G.depth/2),tot=rl+b;
   const det=`Stealth d20 ${rl}${sgn(b)}${loud?` (party noise −${loud})`:''} = ${tot} vs DC ${dc}`;
   if(rl!==1&&tot>=dc){log(`You move quietly. ${r.mons.length>1?'They have':'It has'} not noticed you.`,'magic',det);return}
   r.mons.forEach(m=>m.aware=true);G.fighting=true;
@@ -1471,8 +1522,8 @@ function kill(m){
     const t={king:'The Hollow King staggers, drops to one knee, and comes apart into ash and old iron. The Ember Crown rolls across the floor and stops at your feet.',
       abbess:'The Drowned Abbess sinks slowly to the floor of her reef. The choir falls silent, all at once, for the first time in two hundred years. The Tide Crown drifts down into the sand.',
       wyrm:'Vharzhul rears up, roars one last gout of flame at the sky, and crashes down across his hoard. Gold slides and rings for a long time. The Sky Crown slips from his horn and rolls to your feet.'}[m.k];
-    log(t,'big');r.items.push({k:chap().prize,amt:1});gainXP(share);return}
-  if(m.traitor){log(`${m.name} falls, and does not get up. You take back the ${wname(m.weapon)}.`,'hurt',`+${share} XP each`);G.pack.weapons.push(m.weapon);G.flags['dead_'+m.id]=true;gainXP(share);return}
+    log(t,'big');r.items.push({k:chap().prize,amt:1});const drop={king:'gravewatch',abbess:'lanternmail'}[m.k];if(drop&&!ownsArmor(drop)){r.items.push({k:'armor',a:{id:drop,plus:0}});log(`Among the remains lies ${ARMORS[drop].name}.`,'mythic')}gainXP(share);return}
+  if(m.traitor){log(`${m.name} falls, and does not get up. You take back the ${wname(m.weapon)}.`,'hurt',`+${share} XP each`);G.pack.weapons.push(m.weapon);if(m.armor)(G.pack.armor=G.pack.armor||[]).push(m.armor);G.flags['dead_'+m.id]=true;gainXP(share);return}
   log(`${cap(theM(m))} ${m.k==='skeleton'?'collapses into a pile of bones':m.k==='ooze'?'spreads into a harmless puddle':m.k==='wraith'?'fades with a long sigh':'falls and does not get up'}.`,'text',`CR ${crLabel(m.cr)} · +${share} XP each`);
   if(Math.random()<.35)r.items.push({k:'gold',amt:roll(1,8,G.depth*2)});
   gainXP(share);
@@ -1496,15 +1547,20 @@ function pickTarget(){
 }
 function monAttack(m){
   const t=pickTarget();if(!t)return;
-  const mh=monHit(m),rl=roll(1,20),tot=rl+mh-(ckOf(t)==='monk'?2:0),A=ac(t),crit=rl===20,det=`d20 ${rl}${sgn(mh)}=${tot} vs AC ${A}`;
+  const gw=armorOf(t),dis=gw&&gw.ward&&UNDEAD.has(m.k),r1=roll(1,20),r2=dis?roll(1,20):r1;
+  const mh=monHit(m),rl=Math.min(r1,r2),tot=rl+mh-(ckOf(t)==='monk'?2:0),A=ac(t),crit=rl===20,det=`${dis?`d20 (${r1}, ${r2}) disadvantage`:`d20 ${rl}`}${sgn(mh)}=${tot} vs AC ${A}`;
   const tn=t.hero?'you':t.name;
   if(rl===1||(!crit&&tot<A)){log(`${cap(theM(m))} attacks ${tn}, but ${t.hero?'you turn':'they turn'} the blow aside.`,'miss',det);return}
+  const ar=armorOf(t);
+  if(ar&&ar.shroud&&!t.shroudUsed){t.shroudUsed=true;log(`${cap(theM(m))}\u2019s blow should land, but the Shroud of the Drowned ripples and it passes straight through ${t.hero?'you':t.name}.`,'magic',det);return}
   if(t.hero&&t.ward){t.ward=false;log(`${cap(theM(m))} strikes, and your arcane ward flares and absorbs the blow.`,'magic',det);return}
   const [n,d,b0]=m.dmg,b=b0+monDmg();let dmg=Math.max(1,roll(crit?n*2:n,d,b));
   if(t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
+  if(ar&&((ar.fire&&FIREY.has(m.k))||(ar.dragon&&DRAGONKIN.has(m.k)))){dmg=Math.max(1,Math.floor(dmg/2));log(`${ar.name} turns aside half the damage.`,'magic')}
   if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
   t.hp-=dmg;G.fightDmg=G.fightDmg||{};G.fightDmg[t.hero?'you':t.name]=(G.fightDmg[t.hero?'you':t.name]||0)+dmg;
   log(`${cap(theM(m))} ${crit?'lands a brutal blow on':'hits'} ${tn} for ${dmg} damage${crit?'!':'.'}`,t.hero?'hurt':'threat',`${det} · ${dstr(crit?n*2:n,d,b)}`);
+  if(ar&&ar.thorns&&room().mons.includes(m)){const th=roll(1,6);log(`Thornmail\u2019s spikes bite ${theM(m)} for ${th}.`,'ally');hurt(m,th)}
   if(t.hp<=0){const over=-t.hp;t.hp=0;if(t.hero)heroDown(over,m.boss?theM(m):`a ${m.name}`);else{t.down=true;log(`${t.name} falls!`,'hurt')}}
 }
 function monstersAct(){
@@ -1606,6 +1662,7 @@ function wyrmBreath(){
   if(b.tick%3!==0)return;
   log('Vharzhul breathes. A river of fire pours over the party!','big');
   for(const m of living()){const base=roll(6,6),rl=roll(1,20),sv=rl+m.stats.dex+(m.hero&&EXPERTISE[m.cls]==='dex'?3:0),half=sv>=16;let d=half?Math.floor(base/2):base;
+    {const ar=armorOf(m);if(ar&&(ar.fire||ar.dragon))d=Math.floor(d/2)}
     if(m.temp>0){const a=Math.min(m.temp,d);m.temp-=a;d-=a}
     m.hp-=d;log(`${m.hero?'You':m.name} ${half?'dive aside and take':'take'} ${d} fire damage.`,m.hero?'hurt':'threat',`DEX save d20 ${rl}${sgn(sv-rl)}=${sv} vs DC 16 · 6d6${half?' halved':''}`);
     if(m.hp<=0){const over=-m.hp;m.hp=0;if(m.hero){heroDown(over,'Vharzhul\u2019s fire');if(G.over)return;continue}m.down=true;log(`${m.name} falls!`,'hurt')}}
@@ -1627,13 +1684,14 @@ function round(){
     if(!G.over&&r.mons.length&&!G.reinforced&&comps().length>=2&&!r.throne&&Math.random()<.06*comps().length){
       G.reinforced=true;const m=spawn(encounter({mult:.25,max:1}),true)[0];
       log(`Drawn by the noise of battle, ${theM(m).replace(/^the (first |second |third |fourth |fifth )?/,'a ')} charges in to join the fight!`,'threat');}
+    for(const p of G.party){const ar=armorOf(p);if(ar&&ar.regen&&!p.down&&p.hp<p.maxhp&&room().mons.length){const g=Math.min(2,p.maxhp-p.hp);p.hp+=g;log(`Lantern Mail glows. ${p.hero?'You heal':p.name+' heals'} ${g}.`,'heal')}}
     for(const p of G.party)if(p.rage>0){p.rage--;if(!p.rage)log(p.hero?'Your rage burns out.':`${p.name}\u2019s rage burns out.`,'sys')}
   }
   if(!G.over&&!r.mons.length&&G.fighting)afterFight();
 }
 function afterFight(){
   if(H().down){const h=H();h.down=false;h.hp=Math.max(1,h.hp);G.ds=null;log('The fight is over. Your companions bind your wounds and bring you round. (1 HP)','heal')}
-  G.fighting=false;G.reinforced=false;for(const p of G.party)p.rage=0;
+  G.fighting=false;G.reinforced=false;for(const p of G.party){p.rage=0;p.shroudUsed=false}
   const fd=G.fightDmg||{},tot=Object.values(fd).reduce((a,b)=>a+b,0);G.fightDmg={};
   log(tot?`The fighting is over. It cost the party ${tot} HP: ${Object.entries(fd).sort((a,b)=>b[1]-a[1]).map(([n,d])=>`${n} ${d}`).join(', ')}.`:'The fighting is over. Nobody took a scratch.','sys');
   const healer=(H().cls==='cleric')||comps().some(c=>ckOf(c)==='cleric'&&!c.down);
@@ -1641,7 +1699,7 @@ function afterFight(){
     if(healer){c.down=false;c.hp=1;log(`${c.name} is badly hurt, but a whispered prayer keeps them in the fight. (1 HP)`,'heal');continue}
     const rl=roll(1,20);
     if(rl>=10){c.down=false;c.hp=1;log(`${c.name} groans and sits up. Still alive. (1 HP)`,'heal',`Death save d20 ${rl} vs 10`)}
-    else{G.party=G.party.filter(m=>m!==c);G.flags['dead_'+c.id]=true;G.pack.weapons.push(c.weapon);log(`${c.name} does not get up. You close their eyes and take their ${wname(c.weapon)}. The party is smaller now.`,'hurt',`Death save d20 ${rl} vs 10`)}
+    else{G.party=G.party.filter(m=>m!==c);G.flags['dead_'+c.id]=true;G.pack.weapons.push(c.weapon);if(c.armor)(G.pack.armor=G.pack.armor||[]).push(c.armor);log(`${c.name} does not get up. You close their eyes and take their ${wname(c.weapon)}. The party is smaller now.`,'hurt',`Death save d20 ${rl} vs 10`)}
   }
   for(const c of comps())c.sneakUsed=false;
   const r=room();if(r.items.length)log(`On the floor: ${listJoin(r.items.map(itemName))}.`,'loot');
@@ -1774,6 +1832,7 @@ function take(it,silentRoom){
     case 'whet':G.pack.whet=(G.pack.whet||0)+1;log('You take the Runed Whetstone. Open your pack to hone a weapon with it.','loot');break;
     case 'ward':h.acb++;log(`You fasten the Ironbark Charm to your belt. It feels like armor. +1 AC.`,'loot');break;
     case 'vigor':h.bonusHP+=4;h.maxhp=calcMax(h);h.hp+=4;log(`You drink the Elixir of Vigor. Your heart beats stronger. +4 maximum HP.`,'heal');break;
+    case 'armor':(G.pack.armor=G.pack.armor||[]).push(it.a);log(`You take ${itemName(it)}. ${ARMORS[it.a.id].lore||`+${it.a.plus} to AC for whoever wears it.`} Equip it from your pack.`,ARMORS[it.a.id].mythic?'mythic':'loot');break;
     case 'weapon':G.pack.weapons.push(it.w);log(`You take the ${wname(it.w)} (${dstr(WEAPONS[it.w.id].n,WEAPONS[it.w.id].d)}). Equip it from Party & gear.`,'loot');break;
     case 'crown':case 'tidecrown':case 'skycrown':win();break;
   }
@@ -1898,6 +1957,7 @@ function buildChoices(){
       if(G.pack[k])add(`${n} × ${G.pack[k]}`,()=>openItem(k,'gear'),{cmds:[n.toLowerCase()],sub:{potion:'Drink it or give it to someone',fire:'3d6 fire to every foe here',map:'Reveal the floor',whet:'Hone a weapon: +1, up to +3'}[k]+(atMerchant()?` · sells for ${sellPrice(k)} gold`:''),echo:false});
     G.pack.weapons.forEach((w,i)=>{const d=WEAPONS[w.id];
       add(cap(wname(w)),()=>openItem('w'+i,'gear'),{cmds:[wname(w).toLowerCase()],sub:`${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''} · ${atMerchant()?`sells for ${sellPrice('w'+i)} gold`:'equip or hand it out'}`,kind:d.mythic?'myth':'',echo:false})});
+    (G.pack.armor||[]).forEach((a,i)=>{const d=ARMORS[a.id];add(cap(aname(a)),()=>openItem('a'+i,'gear'),{sub:`+${adef(a).bonus} AC${d.lore?' · '+d.lore.replace(/^\+\d [^.]*\. /,''):''}${atMerchant()?` · sells for ${sellPrice('a'+i)} gold`:''}`,kind:d.mythic?'myth':'',echo:false})});
     for(const m of comps())add(`${m.name}, ${CLASSES[ckOf(m)].name.toLowerCase()}`,()=>{G.menu={type:'mate',id:m.id};logCard(m)},{cmds:[m.name.toLowerCase()],sub:`${m.down?'Fallen':m.hp+'/'+m.maxhp+' HP'} · ${LOYAL_WORD(m.loyalty)} · ${wname(m.weapon)}`,echo:false});
     add('Close',()=>{G.menu=null},{cmds:['done','back','close'],kind:'prime',echo:false});
     return C;
@@ -2118,12 +2178,14 @@ function renderSheet(){
     <div><dt>Gold</dt><dd>${G.gold}</dd></div>${h.temp?`<div><dt>Bear form</dt><dd>${h.temp} temp</dd></div>`:''}${h.rage?`<div><dt>Raging</dt><dd>${h.rage} rds</dd></div>`:''}
     <div><dt>XP</dt><dd>${G.xp}</dd></div>
   </dl>
+  ${h.armor?`<div class="wpn"><b class="${ARMORS[h.armor.id].mythic?'m':''}">${cap(aname(h.armor))}</b> · +${adef(h.armor).bonus} AC${ARMORS[h.armor.id].lore?`<br><span style="color:var(--muted);font-size:.8rem">${ARMORS[h.armor.id].lore.replace(/^\+\d [^.]*\. /,'')}</span>`:''}</div>`:''}
   <div class="wpn"><b class="${wd.mythic?'m':''}">${cap(wname(h.weapon))}</b> · ${wdice(h,h.weapon)}${wd.lore?`<br><span style="color:var(--muted);font-size:.8rem">${wd.lore}</span>`:''}</div>
   <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p></div>
   <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
   <div><h3>Pack <span class="hint">tap an item to use it</span></h3><ul class="pack">
     ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']].map(([k,n])=>k==='whet'&&!G.pack.whet?'':G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
     ${G.pack.weapons.map((w,i)=>`<li class="${WEAPONS[w.id].mythic?'m':''}"><button type="button" data-item="w${i}" class="${G.menu&&G.menu.item==='w'+i?'on':''}"><span>${cap(wname(w))}</span><span>${dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus)}</span></button></li>`).join('')}
+    ${(G.pack.armor||[]).map((a,i)=>`<li class="${ARMORS[a.id].mythic?'m':''}"><button type="button" data-item="a${i}" class="${G.menu&&G.menu.item==='a'+i?'on':''}"><span>${cap(aname(a))}</span><span>+${adef(a).bonus} AC</span></button></li>`).join('')}
     ${E.has('hilt')&&!E.has('kingsbane')?`<li class="m"><span>Hilt of Kingsbane</span><span>broken</span></li>`:''}
   </ul></div>
   <div><h3>${G.cur==='town'?'Ashmoor':'Map of floor '+G.depth}</h3><pre class="map">${mapText(true)}</pre><div class="legend">@ you · ■ explored · ? unexplored · ! foes · ◆ encounter · ▼ stairs</div></div>`;
@@ -2136,30 +2198,33 @@ $('#sheet').addEventListener('click',e=>{
   const mt=e.target.closest('[data-mate]');if(mt&&G){const c=G.party.find(m=>m.id===mt.dataset.mate);if(c){logCard(c);render()}}
 });
 $('#sheet').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('[data-mate]')){e.preventDefault();e.target.click()}});
-function packSummary(){const n=G.pack.potion+G.pack.fire+G.pack.map+G.pack.weapons.length,c=comps().length;return `${n} item${n===1?'':'s'} · ${c} companion${c===1?'':'s'}`}
+function packSummary(){const n=G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+G.pack.weapons.length+(G.pack.armor||[]).length,c=comps().length;return `${n} item${n===1?'':'s'} · ${c} companion${c===1?'':'s'}`}
 function openItem(key,from){
   G.menu={type:'item',item:key,from};
-  if(/^w\d+$/.test(key)){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
+  if(/^a\d+$/.test(key)){const a=(G.pack.armor||[])[+key.slice(1)];if(!a){G.menu=null;render();return}log(`${cap(aname(a))}: +${adef(a).bonus} to Armor Class. ${ARMORS[a.id].lore||'Magic armor fitted over whatever you already wear.'}`,'sys')}
+  else if(/^w\d+$/.test(key)){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
     log(`${cap(wname(w))}: ${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''}. ${d.lore||(d.stat==='finesse'?'Uses Strength or Dexterity, whichever is higher.':d.stat==='int'?'Uses Intelligence.':d.stat==='wis'?'Uses Wisdom.':d.stat==='dex'?'Uses Dexterity.':'Uses Strength.')}`,'sys')}
   else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',whet:'Runed Whetstone: gives one weapon a permanent +1 to hit and damage, up to +3.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
   if(!atMerchant())log('You can sell items to the bone merchant or at the Ashmoor market.','sys');
   const fight=room().mons.some(m=>m.aware);
   if(key==='fire'&&!room().mons.length)log('There is nothing here to burn. Save it for a fight.','sys');
   if(key==='map'&&G.farSight)log('You can already see this whole floor.','sys');
-  if(/^w\d+$/.test(key)&&fight)log('There is no time to change weapons in the middle of a fight.','sys');
+  if((/^w\d+$/.test(key)||/^a\d+$/.test(key))&&fight)log('There is no time to change gear in the middle of a fight.','sys');
   render();
   if(matchMedia('(max-width:880px)').matches)$('#choices').scrollIntoView({behavior:'smooth',block:'center'});
 }
 const atMerchant=()=>!!(G.ev&&(G.ev.id==='merchant'||G.ev.id==='tavern'));
-const sellables=()=>G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+G.pack.weapons.length;
+const sellables=()=>G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+G.pack.weapons.length+(G.pack.armor||[]).length;
 function sellPrice(key){
   if(key==='potion')return 20;if(key==='fire')return 15;if(key==='map')return 12;if(key==='whet')return 15;
+  if(/^a\d+$/.test(key)){const a=(G.pack.armor||[])[+key.slice(1)];if(!a)return 0;return ARMORS[a.id].mythic?60:15+25*(a.plus||0)}
   const w=G.pack.weapons[+key.slice(1)];if(!w)return 0;const d=WEAPONS[w.id];
   return d.mythic?50:5+25*(w.plus||0);
 }
 function sellItem(key,mult=1){
   const n=Math.max(1,Math.round(sellPrice(key)*mult));let name;
   if(/^w\d+$/.test(key)){const i=+key.slice(1),w=G.pack.weapons[i];name=`the ${wname(w)}`;G.pack.weapons.splice(i,1)}
+  else if(/^a\d+$/.test(key)){const i=+key.slice(1),a=G.pack.armor[i];name=ARMORS[a.id].mythic?aname(a):`the ${aname(a)}`;G.pack.armor.splice(i,1)}
   else{G.pack[key]--;name=`a ${{potion:'Healing Draught',fire:'Scroll of Cinders',map:'Scroll of Far Sight',whet:'Runed Whetstone'}[key]}`}
   G.gold+=n;
   log(G.ev&&G.ev.id==='merchant'?`You sell ${name}. The bone merchant counts out ${n} gold with clicking fingers.`:`You sell ${name} for ${n} gold.`,'loot');
@@ -2194,6 +2259,14 @@ function itemChoices(add,inFight){
     }
   }else if(key==='map'&&G.pack.map>0){
     if(!G.farSight)add('Read it now',()=>{back();readFarSight()},{sub:'Reveal this floor',kind:'prime'});
+  }else if(/^a\d+$/.test(key)){
+    const i=+key.slice(1),a=(G.pack.armor||[])[i];
+    if(a&&!inFight){
+      const wear=m=>{back();const old=m.armor;G.pack.armor.splice(i,1);if(old)G.pack.armor.push(old);m.armor=a;log(`${m.hero?'You put on':m.name+' puts on'} ${ARMORS[a.id].mythic?aname(a):'the '+aname(a)}. AC is now ${ac(m)}.${old?` ${cap(aname(old))} goes into your pack.`:''}`,ARMORS[a.id].mythic?'mythic':'loot');if(!m.hero)mood({[m.id]:ARMORS[a.id].mythic?2:1},true)};
+      add('Wear it yourself',()=>wear(h),{sub:`AC ${ac(h)} \u2192 ${ac(h)-(h.armor?adef(h.armor).bonus:0)+adef(a).bonus}${h.armor?` (replaces ${aname(h.armor)})`:''}`,kind:'prime'});
+      for(const m of comps())add(`Give it to ${m.name}`,()=>wear(m),{sub:`${CLASSES[ckOf(m)].name} · AC ${ac(m)} \u2192 ${ac(m)-(m.armor?adef(m.armor).bonus:0)+adef(a).bonus}`});
+      add('Drop it',()=>{back();G.pack.armor.splice(i,1);log(`You leave the ${aname(a)} behind.`,'sys')},{sub:'Gone for good'});
+    }
   }else if(/^w\d+$/.test(key)){
     const i=+key.slice(1),w=G.pack.weapons[i];
     if(w&&!inFight){add('Equip it yourself',()=>{back();equip(i,h)},{sub:`now: ${wname(h.weapon)} ${wdice(h,h.weapon)} → ${wdice(h,w)}`,kind:'prime'});
