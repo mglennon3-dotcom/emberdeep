@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 26</p>
+  <p class="build">Emberdeep · build 27</p>
 </div>
 
 <script>
@@ -377,7 +377,7 @@ const MONS3=[
 const BOSS2={k:'abbess',name:'Drowned Abbess',cr:9,hp:[16,10,48],ac:16,hit:9,dmg:[3,10,5],boss:true};
 const BOSS3={k:'wyrm',name:'Vharzhul the Ash Wyrm',cr:15,hp:[19,12,133],ac:18,hit:11,dmg:[2,10,7],boss:true};
 const MONK=Object.fromEntries([...MONS,...MONS2,...MONS3].map(m=>[m.k,m]));
-const BOSS={k:'king',name:'Hollow King',cr:7,hp:[12,10,40],ac:17,hit:8,dmg:[2,10,5],boss:true};
+const BOSS={k:'king',name:'Hollow King',cr:7,hp:[11,10,30],ac:17,hit:8,dmg:[2,10,5],boss:true};
 
 /* ---------- items ---------- */
 const ITEMS={
@@ -619,7 +619,7 @@ function encounter({mult=1,fixed=[],pool=null,max=null}={}){
   const size=G.party.length,B=budget(mult),P=pool||chap().mons,xpOf=k=>XP_BY_CR[MONK[k].cr];
   const adj=ks=>ks.reduce((a,k)=>a+xpOf(k),0)*encMult(ks.length,size);
   const keys=fixed.slice();if(keys.length&&adj(keys)>=B*.7)return keys;
-  const cap=max||size+2;
+  const cap=max||size+1;
   // pick a main monster whose XP lets roughly one per party member fill the budget
   const want=(B-(keys.length?adj(keys):0))/Math.max(1,size*encMult(size,size));
   const ranked=P.filter(m=>XP_BY_CR[m.cr]<=Math.max(want*1.6,XP_BY_CR[P[0].cr])).sort((a,b)=>Math.abs(Math.log(XP_BY_CR[a.cr]/want))-Math.abs(Math.log(XP_BY_CR[b.cr]/want)));
@@ -659,7 +659,7 @@ function retag(r){const counts={},seen={},ord=['first','second','third','fourth'
 const DIFFS=[
   {name:'Story',tier:0,heroW:1.5,focus:0},
   {name:'Normal',tier:1,heroW:2,focus:0},
-  {name:'Hard',tier:2,heroW:2.5,focus:.2},
+  {name:'Hard',tier:2,heroW:2.2,focus:.15},
   {name:'Deadly',tier:3,heroW:3,focus:.5},
 ];
 const diff=()=>DIFFS[G&&G.diff!=null?G.diff:1];
@@ -738,10 +738,12 @@ function turnHostile(c){
 /* ---------- events (branching, roll-dependent encounters) ---------- */
 const E={
   fight(keys,after=null,{surprise=false}={}){
-    const r=room(),base=keys.length;keys=encounter({fixed:keys});const extra=keys.length-base;
+    const r=room(),size=G.party.length,B=budget(),xpOf=k=>XP_BY_CR[MONK[k].cr],adj=ks=>ks.reduce((a,k)=>a+xpOf(k),0)*encMult(ks.length,size);
+    keys=keys.slice();while(keys.length>1&&adj(keys)>B*1.1)keys.pop();
+    const base=keys.length;keys=encounter({fixed:keys});const extra=keys.length-base;
+    const over=adj(keys)/(B*1.1);
     for(const k of keys){const t0=MONK[k],m=makeMon(t0);m.aware=!surprise;
-      const gap=Math.min(4,Math.floor(Math.log2(Math.max(1,XP_BY_CR[t0.cr]/(THRESH[Math.min(G.lvl,15)-1][2]*1.5)))));
-      if(gap>0){const f=Math.max(.45,1-gap*.15);m.maxhp=m.hp=Math.max(4,Math.round(m.hp*f));m.hit=Math.max(2,m.hit-gap);m.dmg=[m.dmg[0],m.dmg[1],Math.max(0,m.dmg[2]-gap)];m.xp=Math.max(10,Math.round(m.xp*f));m.ac=Math.max(10,m.ac-Math.ceil(gap/2))}
+      if(over>1&&k===keys[0]){const f=Math.max(.35,1/over),g=Math.min(5,Math.round(Math.log2(over)*2));m.maxhp=m.hp=Math.max(4,Math.round(m.hp*f));m.hit=Math.max(1,m.hit-g);m.dmg=[m.dmg[0],m.dmg[1],Math.max(0,m.dmg[2]-g)];m.xp=Math.max(10,Math.round(m.xp*f));m.ac=Math.max(10,m.ac-Math.ceil(g/2));m.name=m.name.startsWith('young')||m.name.startsWith('weak')?m.name:m.name}
       r.mons.push(m)}retag(r);
     if(extra)log(`${extra>1?'More of them come':'Another one comes'} running at the sound. A bigger party draws a bigger crowd.`,'threat');
     G.ev.waiting=true;G.ev.after=after;if(!surprise)G.fighting=true;
@@ -1314,7 +1316,7 @@ function pickEvents(){
 }
 function recruitId(evId){if(evId==='warband')return E.has('orc_friend')?'gruk':null;return{novice:'nell',diver:'oskar',knight:'ilvar',gargoyle:'zeph',smith:'brannoc',priest:'ysolde',kobold:'pip',ranger:'maren',witch:'tessaly',sellsword:'corvin'}[evId]}
 function genFloor(){
-  const d=G.depth,N=Math.min(13,7+Math.ceil((d+(G.chapter||0)*3)/2)),rooms={},list=[];
+  const d=G.depth,N=Math.min(10,8+Math.floor(d/4)),rooms={},list=[];
   const mk=(x,y)=>{const r={x,y,exits:{},mons:[],items:[],feature:null,hidden:null,visited:false,seen:false,searched:false,stairs:false,throne:false,event:null,name:'',desc:[]};rooms[key(x,y)]=r;list.push(r);return r};
   const link=(a,b,dk)=>{a.exits[dk]=key(b.x,b.y);b.exits[OPP[dk]]=key(a.x,a.y)};
   const start=mk(2,2);let guard=0;
@@ -1333,7 +1335,7 @@ function genFloor(){
   for(const r of list){
     if(r===start)continue;
     if(r.throne){G.cur=key(r.x,r.y);r.mons.push(makeMon(chap().boss));const bx=XP_BY_CR[chap().boss.cr];const left=Math.max(0,budget(1.4)-bx*encMult(2,G.party.length));for(const k of encounter({mult:Math.max(.15,left/budget()),pool:chap().escort.map(k=>MONK[k]),max:Math.max(1,G.party.length-1)}))r.mons.push(makeMon(MONK[k]));retag(r);G.cur=key(2,2);continue}
-    if(Math.random()<.48+nComp*.05){G.cur=key(r.x,r.y);spawn(encounter());G.cur=key(2,2)}
+    if(Math.random()<.45+nComp*.04){G.cur=key(r.x,r.y);spawn(encounter());G.cur=key(2,2)}
     if(Math.random()<.28)r.items.push(newItem(pickItemKey()));
     if(Math.random()<.25){const k=pick(Object.keys(FEATURES));r.feature={k,used:false,trap:k==='chest'&&Math.random()<.4,checked:false}}
     if(Math.random()<.3)r.hidden=newItem(pickItemKey());
@@ -1452,6 +1454,14 @@ function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,bl
   if(w.leech){const h=Math.min(Math.floor(dmg/3),att.maxhp-att.hp);if(h>0){att.hp+=h;log(`The Thirsting Blade drinks. ${att.hero?'You heal':att.name+' heals'} ${h}.`,'heal')}}
   hurt(tgt,dmg);
 }
+const MARTIAL=new Set(['fighter','barbarian','paladin','ranger','monk']);
+const extraAttack=m=>G.lvl>=5&&MARTIAL.has(ckOf(m));
+function attackAction(att,tgt,opts={}){
+  strike(att,tgt,opts);
+  if(!extraAttack(att)||G.over)return;
+  const r=room(),t2=r.mons.includes(tgt)?tgt:(r.mons.find(m=>m.aware)||r.mons[0]);
+  if(t2)strike(att,t2,{mark:opts.mark});
+}
 function hurt(m,dmg){if(m.k==='abbess'&&room().mons.some(o=>o.k==='siren')){dmg=Math.max(1,Math.floor(dmg/2));if(!m._shieldMsg){m._shieldMsg=1;log('The sirens\u2019 song shields the Abbess. Only half the damage lands.','magic')}}
   m.hp-=dmg;m.aware=true;if(m.hp<=0)kill(m)}
 function kill(m){
@@ -1475,6 +1485,7 @@ function gainXP(n){
     if(G.lvl===3||G.lvl===6||G.lvl===9)h.stats[main]++;
     for(const m of G.party){const before=m.maxhp;m.maxhp=calcMax(m);if(!m.down)m.hp+=m.maxhp-before}
     if(G.lvl===4||G.lvl===7)h.charges++;
+    if(G.lvl===5){const who=G.party.filter(m=>MARTIAL.has(ckOf(m))).map(m=>m.hero?'you':m.name);if(who.length)log(`Extra Attack! From now on ${listJoin(who)} attack${who.length===1&&who[0]!=='you'?'s':''} twice whenever ${who.length===1&&who[0]!=='you'?'they attack':'you attack'}.`,'crit')}
     log(`The party reaches level ${G.lvl}. Everyone grows tougher.${G.lvl===3||G.lvl===6||G.lvl===9?` Your ${main.toUpperCase()} rises.`:''}${G.lvl===4||G.lvl===7?` ${c.abil.name} gains a use.`:''}`,'big');
   }
 }
@@ -1557,7 +1568,7 @@ function compAct(c){
       break;
     case 'barbarian':
       if(c.charges>0&&!c.rage){c.charges--;c.rage=3;log(`${c.name} roars and flies into a rage!`,'crit')}
-      strike(c,tgt);return;
+      attackAction(c,tgt);return;
     case 'fighter':
       if(c.charges>0&&c.hp/c.maxhp<.4){c.charges--;const h=roll(1,10,G.lvl),got=Math.min(h,c.maxhp-c.hp);c.hp+=got;log(`${c.name} catches their second wind and recovers ${got} HP.`,'heal',dstr(1,10,G.lvl));return}
       break;
@@ -1569,7 +1580,7 @@ function compAct(c){
       break;
     case 'ranger':
       if(c.charges>0&&foes.length>=3){c.charges--;log(`${c.name} looses a volley.`,'ally');for(const m of foes.slice())if(room().mons.includes(m))strike(c,m,{mark:true});return}
-      strike(c,tgt,{mark:true});return;
+      attackAction(c,tgt,{mark:true});return;
     case 'rogue':
       if(!c.sneakUsed){c.sneakUsed=true;strike(c,tgt,{adv:true,sneak:sneakDice()});return}
       break;
@@ -1587,7 +1598,7 @@ function compAct(c){
         log(`${c.name} casts Magic Missile: ${Object.entries(hits).map(([n,d])=>`${d} to ${n}`).join(', ')}.`,'magic',`${darts}×1d4+1`);return}
       spellBolt(c,tgt,'int');return;
   }
-  strike(c,tgt);
+  attackAction(c,tgt);
 }
 function wyrmBreath(){
   const b=room().mons.find(m=>m.k==='wyrm');if(!b)return;b.tick=(b.tick||0)+1;
@@ -1603,7 +1614,7 @@ function bossRegen(){
   wyrmBreath();if(G.over)return;
   const b=room().mons.find(m=>m.k==='king');if(!b)return;
   if(b.scorched)log(`The burns keep the Hollow King’s wounds from closing.`,'magic');
-  else if(b.hp<b.maxhp){const h=Math.min(10,b.maxhp-b.hp);b.hp+=h;log(`The Hollow King’s wounds knit shut. He regains ${h} HP.`,'threat')}
+  else if(b.hp<b.maxhp){const h=Math.min(6,b.maxhp-b.hp);b.hp+=h;log(`The Hollow King’s wounds knit shut. He regains ${h} HP.`,'threat')}
   b.scorched=false;
 }
 function round(){
@@ -1903,7 +1914,7 @@ function buildChoices(){
   }
   }
   if(aware.length){
-    for(const m of r.mons)add(`Attack ${theM(m)}`,()=>strike(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,(m.tag?m.tag+' ':'')+m.name],sub:`${hpWord(m)} · AC ${m.ac} · your ${wname(h.weapon)} ${wdice(h,h.weapon)}`,kind:'fight',combat:true});
+    for(const m of r.mons)add(`Attack ${theM(m)}`,()=>attackAction(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,(m.tag?m.tag+' ':'')+m.name],sub:`${hpWord(m)} · AC ${m.ac} · your ${wname(h.weapon)} ${wdice(h,h.weapon)}${extraAttack(h)?' · two attacks':''}`,kind:'fight',combat:true});
     if(r.mons.some(m=>m.k==='king'))add('Burn the Hollow King with your torch',()=>strike(h,r.mons.find(m=>m.k==='king'),{torch:true}),{cmds:['torch','burn','burn king'],sub:'Weak hit, but fire stops him healing this round',kind:'fight',combat:true});
     if(h.charges>0){
       if(h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${c.abil.desc} ${h.charges} left`,kind:'prime',combat:true});
@@ -1947,7 +1958,7 @@ function buildChoices(){
     add('Pack & party',()=>{G.menu='gear'},{cmds:['gear','party','equip','pack','inventory gear'],sub:packSummary(),echo:false});
     return C;
   }
-  for(const m of unaware)add(`Attack ${theM(m)}`,()=>strike(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,'ambush',m.name],sub:isRogue()?`Surprise: advantage + ${sneakDice()}d6 sneak attack`:'Surprise: attack with advantage',kind:'fight',combat:true});
+  for(const m of unaware)add(`Attack ${theM(m)}`,()=>attackAction(h,m),{cmds:['attack '+m.name,'hit '+m.name,'kill '+m.name,'ambush',m.name],sub:isRogue()?`Surprise: advantage + ${sneakDice()}d6 sneak attack`:'Surprise: attack with advantage',kind:'fight',combat:true});
   if(unaware.length&&h.charges>0){
     if(h.cls==='rogue')add(`Cunning Strike on ${theM(unaware[0])}`,()=>useAbility(unaware[0]),{cmds:['ability','cunning strike','f'],sub:`${h.charges} left`,kind:'prime',combat:true});
     if(h.cls==='wizard')add('Cast Magic Missile',()=>useAbility(),{cmds:['ability','magic missile','missile','cast','f'],sub:`${h.charges} left`,kind:'prime',combat:true});
