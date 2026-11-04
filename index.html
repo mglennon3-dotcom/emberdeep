@@ -180,7 +180,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 34</p>
+  <p class="build">Emberdeep · build 35</p>
 </div>
 
 <script>
@@ -489,6 +489,7 @@ const ITEMS={
   fire:{name:'Scroll of Cinders',a:'a',w:10},
   map:{name:'Scroll of Far Sight',a:'a',w:8},
   whet:{name:'Runed Whetstone',a:'a',w:6},
+  rune:{name:'Warding Rune',a:'a',w:5},
   ward:{name:'Ironbark Charm',a:'an',w:6},
   vigor:{name:'Elixir of Vigor',a:'an',w:4},
   weapon:{name:'weapon',w:6},
@@ -1033,10 +1034,12 @@ const EVENTS={
     leave:{t:'The fire watches you go. “He will mend,” it calls after you, “unless you burn him.”',end:true}}},
 
   anvil:{min:6,max:7,need:()=>!E.has('hilt'),title:'The tempering fire',nodes:{
-    start:{t:'One forge here still burns hot, and a great anvil stands beside it with hammers ready. You could temper a blade here.',o:[
+    start:{t:'One forge here still burns hot, and a great anvil stands beside it with hammers ready. You could temper a blade, or a suit of armor, here.',o:[
       {l:'Work the bellows and temper your weapon',check:['str',13],ok:'good',no:'bad'},
+      {l:'Work the bellows and temper your armor',check:['str',13],ok:'goodarmor',no:'bad'},
       {l:'Leave the forge',go:'leave'}]},
     good:{t:'You heat, hammer and quench until your arms ache. The edge comes out keen and bright.',fx:()=>{const w=H().weapon;if(canHone(w))hone(w,H());else{E.gold(20);return 'Your weapon is already as fine as steel can be made. You sell the spare steel you forged for 20 gold.'}},end:true},
+    goodarmor:{t:'You heat, hammer and quench every plate until your arms ache. The metal comes out darker and harder.',fx:()=>{const h=H();if(canWard(h))ward(h,'Tempered in the old fire,');else{E.gold(20);return 'Your armor is already as fine as it can be made. You sell the spare plates you forged for 20 gold.'}},end:true},
     bad:{t:'The heat is too much. You burn your hands and the steel comes out no better.',fx:()=>{E.dmg(1,8,0,'a forge fire')},end:true},
     leave:{t:'You leave the fire to burn.',end:true}}},
 
@@ -1321,10 +1324,16 @@ Object.assign(EVENTS,{
   tavern:{special:true,repeat:true,title:'The Lantern and Key',nodes:{
     start:{t:'The innkeeper sets down bowls of stew without being asked. Your party eats like wolves. Everyone is healed and rested.',o:[
       {l:'Visit the market',sub:'Draughts and scrolls',go:'market'},
+      {l:'Visit the armorer',sub:'Reinforce armor for gold',go:'armorer'},
       {l:'Look for new companions',if:()=>comps().length<MAX_COMPANIONS,sub:ev=>`${comps().length} of ${MAX_COMPANIONS} places filled`,go:'hire'},
       {l:'Part ways with a companion',if:()=>comps().length>0,go:'part'},
       {l:'Sort out your gear',if:()=>G.pack.weapons.length>0,sub:'Equip weapons and hand them out',go:'gear'},
       {l:()=>`Set out for ${chap().name}`,sub:()=>chap().stairs==='up'?'A long road north to the spire':'A cold road to the lake at Mirelight',go:'leave'}]},
+    armorer:{t:'A broad-shouldered armorer looks your party up and down. \u201cI can make any of that tougher. It\u2019ll cost you, and it gets dearer the better it already is.\u201d',o:[0,1,2,3].map(i=>({
+      l:()=>{const m=G.party[i];return m&&canWard(m)?`Reinforce ${m.hero?'your':m.name+'\u2019s'} ${m.armor?aname(m.armor):'armor'}`:''},
+      if:()=>{const m=G.party[i];return m&&canWard(m)&&G.gold>=armorerCost(m)},
+      sub:()=>{const m=G.party[i];return m?`${armorerCost(m)} gold · AC ${ac(m)} \u2192 ${ac(m)+1}`:''},go:'r'+i})).concat([{l:'Back to the tavern',go:'start'}])},
+    r0:{fx:()=>armorerWork(0),next:'armorer'},r1:{fx:()=>armorerWork(1),next:'armorer'},r2:{fx:()=>armorerWork(2),next:'armorer'},r3:{fx:()=>armorerWork(3),next:'armorer'},
     market:{t:'The market stalls are open late for heroes.',o:[
       {l:'Sell from your pack',sub:'Traders pay half what things are worth',if:()=>sellables()>0,go:'msell'},
       {l:'Buy a Healing Draught',sub:'40 gold',if:()=>G.gold>=40,go:'buyp'},
@@ -1376,6 +1385,8 @@ function mostLoyal(){return comps().filter(c=>c.loyalty>0).sort((a,b)=>b.loyalty
 function swapOut(i,ev){const c=comps()[i];if(!c)return;(G.evQueue=G.evQueue||[]).unshift({id:'dismiss',who:c.id,thenRecruit:ev.newId,loyalty:ev.loyalty});endEvent()}
 function hireAt(i,ev){const id=ev.offers[i];if(!id)return;if(G.gold<25){log('You can\u2019t afford to hire anyone right now. It costs 25 gold.','sys');return}E.gold(-25);recruit(id,5);ev.offers.splice(i,1)}
 function resolveGrudge(id){const g=(G.grudges||[]).find(x=>x.id===id&&!x.done);if(g)g.done=true}
+const armorerCost=m=>60*(armorBonusOf(m)+1);
+function armorerWork(i){const m=G.party[i];if(!m||!canWard(m))return;const c=armorerCost(m);if(G.gold<c)return;E.gold(-c);ward(m,`The armorer hammers through the night. For ${c} gold,`)}
 function queuePart(i){const c=comps()[i];if(!c)return;G.evQueue=G.evQueue||[];G.evQueue.unshift({id:'dismiss',who:c.id},{id:'tavern'})}
 function partAt(i){const c=comps()[i];if(!c)return;log(`You buy ${c.name} a last drink, and part ways in Ashmoor.${c.loyalty>=6?' They leave you a Healing Draught.':''}`,'event');if(c.loyalty>=6)G.pack.potion++;leaveParty(c.id)}
 function ending(kind){
@@ -2037,6 +2048,7 @@ function take(it,silentRoom){
   switch(it.k){
     case 'gold':G.gold+=it.amt;log(`You pocket ${it.amt} gold coins.`,'loot');break;
     case 'potion':case 'fire':case 'map':G.pack[it.k]++;log(`You take ${itemName(it)} and pack it away.`,'loot');break;
+    case 'rune':G.pack.rune=(G.pack.rune||0)+1;log('You take the Warding Rune. Open your pack to ward someone\u2019s armor with it.','loot');break;
     case 'whet':G.pack.whet=(G.pack.whet||0)+1;log('You take the Runed Whetstone. Open your pack to hone a weapon with it.','loot');break;
     case 'ward':h.acb++;log(`You fasten the Ironbark Charm to your belt. It feels like armor. +1 AC.`,'loot');break;
     case 'vigor':h.bonusHP+=4;h.maxhp=calcMax(h);h.hp+=4;log(`You drink the Elixir of Vigor. Your heart beats stronger. +4 maximum HP.`,'heal');break;
@@ -2165,8 +2177,8 @@ function buildChoices(){
   if(G.menu&&G.menu.type==='item'){itemChoices(add,aware.length>0);return C}
   if(!aware.length){
   if(G.menu==='gear'){
-    for(const [k,n] of [['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']])
-      if(G.pack[k])add(`${n} × ${G.pack[k]}`,()=>openItem(k,'gear'),{cmds:[n.toLowerCase()],sub:{potion:'Drink it or give it to someone',fire:'3d6 fire to every foe here',map:'Reveal the floor',whet:'Hone a weapon: +1, up to +3'}[k]+(atMerchant()?` · sells for ${sellPrice(k)} gold`:''),echo:false});
+    for(const [k,n] of [['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone'],['rune','Warding Rune']])
+      if(G.pack[k])add(`${n} × ${G.pack[k]}`,()=>openItem(k,'gear'),{cmds:[n.toLowerCase()],sub:{potion:'Drink it or give it to someone',fire:'3d6 fire to every foe here',map:'Reveal the floor',whet:'Hone a weapon: +1, up to +3',rune:'Ward armor: +1 AC, up to +3'}[k]+(atMerchant()?` · sells for ${sellPrice(k)} gold`:''),echo:false});
     G.pack.weapons.forEach((w,i)=>{const d=WEAPONS[w.id];
       add(cap(wname(w)),()=>openItem('w'+i,'gear'),{cmds:[wname(w).toLowerCase()],sub:`${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''} · ${atMerchant()?`sells for ${sellPrice('w'+i)} gold`:'equip or hand it out'}`,kind:d.mythic?'myth':'',echo:false})});
     (G.pack.armor||[]).forEach((a,i)=>{const d=ARMORS[a.id];add(cap(aname(a)),()=>openItem('a'+i,'gear'),{sub:`+${adef(a).bonus} AC${d.lore?' · '+d.lore.replace(/^\+\d [^.]*\. /,''):''}${atMerchant()?` · sells for ${sellPrice('a'+i)} gold`:''}`,kind:d.mythic?'myth':'',echo:false})});
@@ -2399,7 +2411,7 @@ function renderSheet(){
   <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p><p style="color:var(--muted)"><b style="color:var(--ink-soft)">Skills:</b> ${(CLASS_SKILLS[h.cls]||{prof:[]}).prof.map(k=>`${SKILL_NAME[k]} ${sgn(skillBonus(h,k))}`).join(', ')}<br><b style="color:var(--ink-soft)">Saves:</b> ${(SAVE_PROF[h.cls]||[]).map(k=>`${k.toUpperCase()} ${sgn(saveBonus(h,k))}`).join(', ')}</p>${(h.feats||[]).length?`<p><b>Feats:</b> ${h.feats.map(f=>FEATS[f].name+(f==='lucky'?` (${h.luck??0} luck)`:'')).join(', ')}</p>`:''}${subInfo(h)?`<p><b>${subInfo(h).name}:</b> ${subInfo(h).desc}</p>`:G.lvl<3?`<p style="color:var(--muted)">At level 3 you choose a subclass.</p>`:''}</div>
   <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}${condList(m).length?` · <span style="color:var(--blood)">${condList(m).join(', ')}</span>`:''}${m.drain?` · drained`:''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
   <div><h3>Pack <span class="hint">tap an item to use it</span></h3><ul class="pack">
-    ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']].map(([k,n])=>k==='whet'&&!G.pack.whet?'':G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
+    ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone'],['rune','Warding Rune']].map(([k,n])=>(k==='whet'||k==='rune')&&!G.pack[k]?'':G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
     ${G.pack.weapons.map((w,i)=>`<li class="${WEAPONS[w.id].mythic?'m':''}"><button type="button" data-item="w${i}" class="${G.menu&&G.menu.item==='w'+i?'on':''}"><span>${cap(wname(w))}</span><span>${dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus)}</span></button></li>`).join('')}
     ${(G.pack.armor||[]).map((a,i)=>`<li class="${ARMORS[a.id].mythic?'m':''}"><button type="button" data-item="a${i}" class="${G.menu&&G.menu.item==='a'+i?'on':''}"><span>${cap(aname(a))}</span><span>+${adef(a).bonus} AC</span></button></li>`).join('')}
     ${E.has('hilt')&&!E.has('kingsbane')?`<li class="m"><span>Hilt of Kingsbane</span><span>broken</span></li>`:''}
@@ -2414,13 +2426,13 @@ $('#sheet').addEventListener('click',e=>{
   const mt=e.target.closest('[data-mate]');if(mt&&G){const c=G.party.find(m=>m.id===mt.dataset.mate);if(c){logCard(c);render()}}
 });
 $('#sheet').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('[data-mate]')){e.preventDefault();e.target.click()}});
-function packSummary(){const n=G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+G.pack.weapons.length+(G.pack.armor||[]).length,c=comps().length;return `${n} item${n===1?'':'s'} · ${c} companion${c===1?'':'s'}`}
+function packSummary(){const n=G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+(G.pack.rune||0)+G.pack.weapons.length+(G.pack.armor||[]).length,c=comps().length;return `${n} item${n===1?'':'s'} · ${c} companion${c===1?'':'s'}`}
 function openItem(key,from){
   G.menu={type:'item',item:key,from};
   if(/^a\d+$/.test(key)){const a=(G.pack.armor||[])[+key.slice(1)];if(!a){G.menu=null;render();return}log(`${cap(aname(a))}: +${adef(a).bonus} to Armor Class. ${ARMORS[a.id].lore||'Magic armor fitted over whatever you already wear.'}`,'sys')}
   else if(/^w\d+$/.test(key)){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
     log(`${cap(wname(w))}: ${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''}. ${d.lore||(d.stat==='finesse'?'Uses Strength or Dexterity, whichever is higher.':d.stat==='int'?'Uses Intelligence.':d.stat==='wis'?'Uses Wisdom.':d.stat==='dex'?'Uses Dexterity.':'Uses Strength.')}`,'sys')}
-  else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',whet:'Runed Whetstone: gives one weapon a permanent +1 to hit and damage, up to +3.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
+  else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',rune:'Warding Rune: gives one suit of armor a permanent +1 AC, up to +3. Works on everyday armor too.',whet:'Runed Whetstone: gives one weapon a permanent +1 to hit and damage, up to +3.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
   if(!atMerchant())log('You can sell items to the bone merchant or at the Ashmoor market.','sys');
   const fight=room().mons.some(m=>m.aware);
   if(key==='fire'&&!room().mons.length)log('There is nothing here to burn. Save it for a fight.','sys');
@@ -2430,9 +2442,9 @@ function openItem(key,from){
   if(matchMedia('(max-width:880px)').matches)$('#choices').scrollIntoView({behavior:'smooth',block:'center'});
 }
 const atMerchant=()=>!!(G.ev&&(G.ev.id==='merchant'||G.ev.id==='tavern'));
-const sellables=()=>G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+G.pack.weapons.length+(G.pack.armor||[]).length;
+const sellables=()=>G.pack.potion+G.pack.fire+G.pack.map+(G.pack.whet||0)+(G.pack.rune||0)+G.pack.weapons.length+(G.pack.armor||[]).length;
 function sellPrice(key){
-  if(key==='potion')return 20;if(key==='fire')return 15;if(key==='map')return 12;if(key==='whet')return 15;
+  if(key==='potion')return 20;if(key==='fire')return 15;if(key==='map')return 12;if(key==='whet')return 15;if(key==='rune')return 15;
   if(/^a\d+$/.test(key)){const a=(G.pack.armor||[])[+key.slice(1)];if(!a)return 0;return ARMORS[a.id].mythic?60:15+25*(a.plus||0)}
   const w=G.pack.weapons[+key.slice(1)];if(!w)return 0;const d=WEAPONS[w.id];
   return d.mythic?50:5+25*(w.plus||0);
@@ -2441,7 +2453,7 @@ function sellItem(key,mult=1){
   const n=Math.max(1,Math.round(sellPrice(key)*mult));let name;
   if(/^w\d+$/.test(key)){const i=+key.slice(1),w=G.pack.weapons[i];name=`the ${wname(w)}`;G.pack.weapons.splice(i,1)}
   else if(/^a\d+$/.test(key)){const i=+key.slice(1),a=G.pack.armor[i];name=ARMORS[a.id].mythic?aname(a):`the ${aname(a)}`;G.pack.armor.splice(i,1)}
-  else{G.pack[key]--;name=`a ${{potion:'Healing Draught',fire:'Scroll of Cinders',map:'Scroll of Far Sight',whet:'Runed Whetstone'}[key]}`}
+  else{G.pack[key]--;name=`a ${{potion:'Healing Draught',fire:'Scroll of Cinders',map:'Scroll of Far Sight',whet:'Runed Whetstone',rune:'Warding Rune'}[key]}`}
   G.gold+=n;
   log(G.ev&&G.ev.id==='merchant'?`You sell ${name}. The bone merchant counts out ${n} gold with clicking fingers.`:`You sell ${name} for ${n} gold.`,'loot');
   mood({pip:1,oskar:1},true);
@@ -2461,6 +2473,14 @@ function hone(w,owner){
   log(`You work the runes into the edge of ${owner&&!owner.hero?owner.name+'\u2019s ':'your '}${old}. It is now ${wname(w)}: +1 to hit, and damage ${before} \u2192 ${after}.`,'loot');
 }
 const canHone=w=>wdef(w).bonus<3;
+const armorBonusOf=m=>m.armor?adef(m.armor).bonus:0;
+const canWard=m=>armorBonusOf(m)<3;
+function ward(m,how){
+  const before=ac(m),old=m.armor?aname(m.armor):null;
+  if(m.armor)m.armor.plus=(m.armor.plus||0)+1;else m.armor={id:'plain',plus:1};
+  log(`${how} ${old?`${m.hero?'your':m.name+'\u2019s'} ${old} becomes ${aname(m.armor)}`:`${m.hero?'your':m.name+'\u2019s'} everyday armor becomes ${aname(m.armor)}`}. AC ${before} \u2192 ${ac(m)}.`,'loot');
+}
+function wardPack(a){const old=aname(a);a.plus=(a.plus||0)+1;log(`You work the rune into the ${old} in your pack. It is now ${aname(a)}.`,'loot')}
 function itemChoices(add,inFight){
   const key=G.menu.item,from=G.menu.from,h=H(),back=()=>{G.menu=from==='gear'?'gear':null};
   if(key==='potion'&&G.pack.potion>0){
@@ -2468,6 +2488,11 @@ function itemChoices(add,inFight){
     for(const m of comps())add(`Give it to ${m.name}`,()=>{back();drink(m)},{sub:m.down?'Fallen: gets them back up':`${m.hp}/${m.maxhp} HP`,combat:inFight});
   }else if(key==='fire'&&G.pack.fire>0){
     if(room().mons.length)add('Read it now',()=>{back();readCinders()},{sub:`Burns ${listJoin(room().mons.map(theM))}`,combat:true,kind:'prime'});
+  }else if(key==='rune'&&(G.pack.rune||0)>0){
+    if(!inFight){
+      for(const m of G.party)if(canWard(m))add(m.hero?`Ward your ${m.armor?aname(m.armor):'armor'}`:`Ward ${m.name}\u2019s ${m.armor?aname(m.armor):'armor'}`,()=>{back();G.pack.rune--;ward(m,'The rune flares and sinks into the metal:');if(!m.hero)mood({[m.id]:1},true)},{sub:`AC ${ac(m)} \u2192 ${ac(m)+1}`,kind:m.hero?'prime':''});
+      (G.pack.armor||[]).forEach(a=>{if(adef(a).bonus<3)add(`Ward the ${aname(a)} in your pack`,()=>{back();G.pack.rune--;wardPack(a)},{sub:'+1 AC for whoever wears it'})});
+    }
   }else if(key==='whet'&&(G.pack.whet||0)>0){
     if(!inFight){
       for(const m of G.party){const w=m.weapon;if(canHone(w))add(m.hero?`Hone your ${wname(w)}`:`Hone ${m.name}\u2019s ${wname(w)}`,()=>{back();G.pack.whet--;hone(w,m);if(!m.hero)mood({[m.id]:1},true)},{sub:`${wdice(m,w)} \u2192 +1 to hit and damage`,kind:m.hero?'prime':''})}
