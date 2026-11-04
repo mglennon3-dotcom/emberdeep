@@ -180,7 +180,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 36</p>
+  <p class="build">Emberdeep · build 37</p>
 </div>
 
 <script>
@@ -214,8 +214,11 @@ const WEAPONS={
   greatsword:{name:'greatsword',n:2,d:6,stat:'str'},
   spear:{name:'spear',n:1,d:8,stat:'str'},
   staff:{name:'quarterstaff',n:1,d:6,stat:'int'},
-  longbow:{name:'longbow',n:1,d:8,stat:'dex'},
-  crossbow:{name:'hand crossbow',n:1,d:6,stat:'dex'},
+  longbow:{name:'longbow',n:1,d:8,stat:'dex',ranged:true},
+  shortbow:{name:'shortbow',n:1,d:6,stat:'dex',ranged:true},
+  crossbow:{name:'hand crossbow',n:1,d:6,stat:'dex',ranged:true,loading:true},
+  lightxbow:{name:'light crossbow',n:1,d:8,stat:'dex',ranged:true,loading:true},
+  heavyxbow:{name:'heavy crossbow',n:1,d:10,stat:'dex',ranged:true,loading:true},
   greataxe:{name:'greataxe',n:1,d:12,stat:'str'},
   rapier:{name:'rapier',n:1,d:8,stat:'finesse'},
   shillelagh:{name:'shillelagh',n:1,d:8,stat:'wis'},
@@ -229,6 +232,7 @@ const WEAPONS={
   tidebreaker:{name:'Tidebreaker',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'cold'],mythic:true,lore:'+2 trident of the drowned abbey. +1d8 cold on every hit.'},
   wyrmfang:{name:'Wyrmfang',n:1,d:10,stat:'str',bonus:2,slayer:[3,8],mythic:true,lore:'+2 glaive cut from a dragon\u2019s tooth. +3d8 against dragons and their kin.'},
   dawnlance:{name:'Dawnlance',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'radiant'],undead:[1,8],mythic:true,lore:'+2 lance of morning light. +1d8 radiant, and another 1d8 against the undead.'},
+  galeheart:{name:'Galeheart',n:1,d:8,stat:'dex',bonus:2,extra:[1,6,'thunder'],ranged:true,mythic:true,lore:'+2 longbow strung with a storm giant\u2019s hair. +1d6 thunder on every hit.'},
   kingsbane:{name:'Kingsbane',n:1,d:8,stat:'finesse',bonus:2,extra:[1,8,'radiant'],king:true,mythic:true,lore:'+2 sword reforged in the Ember Forge. +1d8 radiant, and its wounds stop the Hollow King from mending.'},
 };
 const wdef=w=>{const b=WEAPONS[w.id];return{...b,bonus:(b.bonus||0)+(w.plus||0)}};
@@ -250,8 +254,7 @@ const AMMO={
   slayundead:{name:'Arrow of Slaying (Undead)',slay:'undead',price:25,w:3,desc:'+6d10 against the undead. One shot.'},
   slaydragon:{name:'Arrow of Slaying (Dragon)',slay:'dragon',price:25,w:2,desc:'+6d10 against dragons and their kin. One shot.'},
 };
-const BOWS=new Set(['longbow','crossbow']);
-const isArcher=m=>m&&m.weapon&&BOWS.has(m.weapon.id);
+const isArcher=m=>!!(m&&m.weapon&&WEAPONS[m.weapon.id]&&WEAPONS[m.weapon.id].ranged);
 const ammoLeft=k=>(G.pack.ammo||{})[k]||0;
 function loadedAmmo(m){return isArcher(m)&&m.load&&ammoLeft(m.load)>0?m.load:null}
 function autoLoad(k){const who=G.party.filter(m=>isArcher(m)&&!loadedAmmo(m));if(!who.length)return;const m=who.find(x=>x.hero)||who[0];m.load=k;log(`${m.hero?'You load':m.name+' loads'} ${AMMO[k].name} into ${m.hero?'your':'their'} ${wname(m.weapon)}.`,'sys')}
@@ -312,10 +315,11 @@ const FEATS={
   savage:{name:'Savage Attacker',desc:'Once a turn, roll your weapon damage twice and keep the higher.'},
   healer:{name:'Healer',desc:'Healing Draughts you drink or hand out heal the maximum.'},
   resilient:{name:'Resilient',desc:'+2 to all saving throws.'},
+  xbow:{name:'Crossbow Expert',desc:'Crossbows lose the Loading property, so you fire one with every attack you get.'},
   inspiring:{name:'Inspiring Leader',desc:'After each long rest, your companions gain temporary HP equal to your level + Charisma.'},
 };
 const feat=id=>G&&G.party&&G.party[0]&&(G.party[0].feats||[]).includes(id);
-const HEAVY=new Set(['greatsword','greataxe','battleaxe','warhammer','longsword','longbow','wyrmfang','thirst']);
+const HEAVY=new Set(['greatsword','greataxe','battleaxe','warhammer','longsword','longbow','heavyxbow','galeheart','wyrmfang','thirst']);
 const sub=id=>G&&G.party&&G.party[0]&&G.party[0].sub===id;
 const subInfo=h=>h.sub?(SUBCLASSES[h.cls]||[]).find(x=>x.id===h.sub):null;
 const EXPERTISE={rogue:'dex',bard:'cha',ranger:'wis'};
@@ -792,7 +796,7 @@ function newItem(k){
   if(k==='gold')return{k,amt:roll(2,6,G.depth*4)};
   if(k==='arrows'){const pool=Object.entries(AMMO);let r=rnd(pool.reduce((a,[,v])=>a+v.w,0)),t='fire';for(const [kk,v] of pool){if((r-=v.w)<0){t=kk;break}}return{k,ammo:t,amt:AMMO[t].slay?1:6}}
   if(k==='armor')return{k,a:{id:'plain',plus:G.depth>=6&&Math.random()<.4?2:1}};
-  if(k==='weapon'){const id=pick(['shortsword','longsword','battleaxe','warhammer','spear','greatsword','dagger','longbow','staff']);return{k,w:{id,plus:G.depth>=6&&Math.random()<.4?2:1}}}
+  if(k==='weapon'){const id=pick(['shortsword','longsword','battleaxe','warhammer','spear','greatsword','dagger','longbow','staff','shortbow','lightxbow','heavyxbow','longbow']);return{k,w:{id,plus:G.depth>=6&&Math.random()<.4?2:1}}}
   return{k,amt:1};
 }
 
@@ -1080,7 +1084,7 @@ const EVENTS={
     after:{t:'With its guards destroyed, the hammer slides loose from the lid.',fx:()=>E.give('gravewarden'),end:true},
     leave:{t:'You leave the knight to her rest.',end:true}}},
 
-  merchant:{ch:'any',min:1,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden'].filter(id=>!owns(id)))||null;ev.astock=pick(['emberplate','cloak'].filter(id=>!ownsArmor(id)))||null},nodes:{
+  merchant:{ch:'any',min:1,max:7,title:'The bone merchant',init:ev=>{ev.stock=pick(['thirst','moonglass','stormcaller','cinderfang','hush','gravewarden','galeheart'].filter(id=>!owns(id)))||null;ev.astock=pick(['emberplate','cloak'].filter(id=>!ownsArmor(id)))||null},nodes:{
     start:{t:ev=>`A skeleton in a merchant’s velvet hat has set up a stall on a coffin lid. “Customers! Living ones! Everything must go.”${ev.stock?` In pride of place lies ${WEAPONS[ev.stock].name}: ${WEAPONS[ev.stock].lore}`:''}${ev.astock?` Hanging behind him is ${ARMORS[ev.astock].name}.`:''}`,o:[
       {l:'Buy a Healing Draught',sub:'40 gold',if:()=>G.gold>=40,go:'potion'},
       {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'scroll'},
@@ -1356,12 +1360,23 @@ Object.assign(EVENTS,{
       {l:'Buy a Healing Draught',sub:'40 gold',if:()=>G.gold>=40,go:'buyp'},
       {l:'Buy a Scroll of Cinders',sub:'30 gold',if:()=>G.gold>=30,go:'buyf'},
       {l:'Buy a Scroll of Far Sight',sub:'25 gold',if:()=>G.gold>=25,go:'buym'},
+      {l:'Visit the bowyer',sub:'Bows and crossbows',go:'bowyer'},
       {l:'Buy 6 Fire Arrows',sub:'25 gold',if:()=>G.gold>=25,go:'ar_fire'},{l:'Buy 6 Frost Arrows',sub:'25 gold',if:()=>G.gold>=25,go:'ar_frost'},{l:'Buy 6 Silvered Arrows',sub:'25 gold',if:()=>G.gold>=25,go:'ar_silver'},
       {l:'Back to the tavern',go:'start'}]},
     msell:{t:'A trader clears a space on the counter for your things.',fx:()=>{G.menu='gear'},next:'market'},
     buyp:{fx:()=>{E.gold(-40);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'market'},
     buyf:{fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'market'},
     ar_fire:{fx:()=>{E.gold(-25);take({k:'arrows',ammo:'fire',amt:6},true)},next:'market'},ar_frost:{fx:()=>{E.gold(-25);take({k:'arrows',ammo:'frost',amt:6},true)},next:'market'},ar_silver:{fx:()=>{E.gold(-25);take({k:'arrows',ammo:'silver',amt:6},true)},next:'market'},
+    bowyer:{t:'A one-eyed bowyer waxes a string by lamplight. \u201cAll tested. Mostly on bandits.\u201d',o:[
+      {l:'Buy a shortbow',sub:'15 gold · 1d6, Dexterity',if:()=>G.gold>=15,go:'bw_shortbow'},
+      {l:'Buy a light crossbow',sub:'20 gold · 1d8, Dexterity, Loading',if:()=>G.gold>=20,go:'bw_lightxbow'},
+      {l:'Buy a longbow',sub:'30 gold · 1d8, Dexterity, Heavy',if:()=>G.gold>=30,go:'bw_longbow'},
+      {l:'Buy a heavy crossbow',sub:'40 gold · 1d10, Dexterity, Heavy, Loading',if:()=>G.gold>=40,go:'bw_heavyxbow'},
+      {l:'Back to the market',go:'market'}]},
+    bw_shortbow:{fx:()=>{E.gold(-15);G.pack.weapons.push({id:'shortbow',plus:0});log('You buy a shortbow. Equip it from Pack & party.','loot')},next:'bowyer'},
+    bw_lightxbow:{fx:()=>{E.gold(-20);G.pack.weapons.push({id:'lightxbow',plus:0});log('You buy a light crossbow. Equip it from Pack & party.','loot')},next:'bowyer'},
+    bw_longbow:{fx:()=>{E.gold(-30);G.pack.weapons.push({id:'longbow',plus:0});log('You buy a longbow. Equip it from Pack & party.','loot')},next:'bowyer'},
+    bw_heavyxbow:{fx:()=>{E.gold(-40);G.pack.weapons.push({id:'heavyxbow',plus:0});log('You buy a heavy crossbow. Equip it from Pack & party.','loot')},next:'bowyer'},
     buym:{fx:()=>{E.gold(-25);G.pack.map++;log('You buy a Scroll of Far Sight.','loot')},next:'market'},
     hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.flags['grudge_'+id]&&!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},fx:ev=>{for(const id of ev.offers)logCard(previewComp(id),'Looking for work')},o:[
       {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${compTitle(ev.offers[0])}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${CLASSES[compClass(ev.offers[0])].name} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
@@ -1735,7 +1750,7 @@ function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,bl
   if(att.hero&&att.sub==='fiend'&&tgt.hp<=0){const t=Math.max(1,att.stats.cha+G.lvl);att.temp=Math.max(att.temp||0,t);log(`Your patron is pleased. You gain ${t} temporary HP.`,'magic')}
 }
 const MARTIAL=new Set(['fighter','barbarian','paladin','ranger','monk']);
-const extraAttack=m=>G.lvl>=5&&MARTIAL.has(ckOf(m));
+const extraAttack=m=>G.lvl>=5&&MARTIAL.has(ckOf(m))&&!(WEAPONS[m.weapon.id].loading&&!(m.hero&&feat('xbow')));
 function attackAction(att,tgt,opts={}){
   strike(att,tgt,opts);
   if(att.hero&&att.sub==='gloom'&&!att.gloomUsed&&!G.over){att.gloomUsed=true;const r=room(),t3=r.mons.includes(tgt)?tgt:r.mons[0];if(t3){log('You strike again from the dark before they can react.','sys');strike(att,t3,opts)}}
@@ -2463,7 +2478,7 @@ function openItem(key,from){
   if(key.startsWith('x:')){const k=key.slice(2);log(`${AMMO[k].name} (${ammoLeft(k)}): ${AMMO[k].desc} ${G.party.some(isArcher)?'Load them into a bow and every shot uses one.':'No one in your party uses a bow or crossbow yet.'}`,'sys')}
   else if(/^a\d+$/.test(key)){const a=(G.pack.armor||[])[+key.slice(1)];if(!a){G.menu=null;render();return}log(`${cap(aname(a))}: +${adef(a).bonus} to Armor Class. ${ARMORS[a.id].lore||'Magic armor fitted over whatever you already wear.'}`,'sys')}
   else if(/^w\d+$/.test(key)){const w=G.pack.weapons[+key.slice(1)];if(!w){G.menu=null;render();return}const d=WEAPONS[w.id];
-    log(`${cap(wname(w))}: ${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''}. ${d.lore||(d.stat==='finesse'?'Uses Strength or Dexterity, whichever is higher.':d.stat==='int'?'Uses Intelligence.':d.stat==='wis'?'Uses Wisdom.':d.stat==='dex'?'Uses Dexterity.':'Uses Strength.')}`,'sys')}
+    log(`${cap(wname(w))}: ${dstr(d.n,d.d,wdef(w).bonus)}${d.extra?` +${d.extra[0]}d${d.extra[1]} ${d.extra[2]}`:''}. ${d.lore||(d.stat==='finesse'?'Uses Strength or Dexterity, whichever is higher.':d.stat==='int'?'Uses Intelligence.':d.stat==='wis'?'Uses Wisdom.':d.stat==='dex'?`Uses Dexterity.${d.loading?' Loading: one shot per turn, even with Extra Attack, unless you have Crossbow Expert.':''}${d.ranged?' Fires special arrows.':''}`:'Uses Strength.')}`,'sys')}
   else log({potion:`Healing Draught: restores 2d4+${2+G.depth} HP. Can get a fallen companion back on their feet.`,fire:'Scroll of Cinders: 3d6 fire to every foe in the room. Fire also stops the Hollow King from mending.',rune:'Warding Rune: gives one suit of armor a permanent +1 AC, up to +3. Works on everyday armor too.',whet:'Runed Whetstone: gives one weapon a permanent +1 to hit and damage, up to +3.',map:'Scroll of Far Sight: reveals the whole floor on your map.'}[key],'sys');
   if(!atMerchant())log('You can sell items to the bone merchant or at the Ashmoor market.','sys');
   const fight=room().mons.some(m=>m.aware);
