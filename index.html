@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 25</p>
+  <p class="build">Emberdeep · build 26</p>
 </div>
 
 <script>
@@ -381,7 +381,7 @@ const BOSS={k:'king',name:'Hollow King',cr:7,hp:[12,10,40],ac:17,hit:8,dmg:[2,10
 
 /* ---------- items ---------- */
 const ITEMS={
-  potion:{name:'Healing Draught',a:'a',w:12},
+  potion:{name:'Healing Draught',a:'a',w:18},
   gold:{name:'gold',w:26},
   fire:{name:'Scroll of Cinders',a:'a',w:10},
   map:{name:'Scroll of Far Sight',a:'a',w:8},
@@ -614,11 +614,11 @@ const XP_BY_CR={0.125:25,0.25:50,0.5:100,1:200,2:450,3:700,4:1100,5:1800,6:2300,
 const THRESH=[[25,50,75,100],[50,100,150,200],[75,150,225,400],[125,250,375,500],[250,500,750,1100],[300,600,900,1400],[350,750,1100,1700],[450,900,1400,2100],[550,1100,1600,2400],[600,1200,1900,2800],[800,1600,2400,3600],[1000,2000,3000,4500],[1100,2200,3400,5100],[1250,2500,3800,5700],[1400,2800,4300,6400]];
 const crLabel=cr=>cr===.125?'1/8':cr===.25?'1/4':cr===.5?'1/2':String(cr);
 function encMult(n,size){const steps=[1,1.5,2,2.5,3,4];let i=n<=1?0:n===2?1:n<=6?2:n<=10?3:n<=14?4:5;if(size<3)i++;else if(size>5)i--;return steps[Math.max(0,Math.min(5,i))]}
-function budget(mult=1){return THRESH[Math.min(G.lvl,15)-1][diff().tier]*G.party.length*mult}
+function budget(mult=1){const tier=Math.max(0,diff().tier-(G.lvl<=1?1:0));return THRESH[Math.min(G.lvl,15)-1][tier]*G.party.length*mult}
 function encounter({mult=1,fixed=[],pool=null,max=null}={}){
   const size=G.party.length,B=budget(mult),P=pool||chap().mons,xpOf=k=>XP_BY_CR[MONK[k].cr];
   const adj=ks=>ks.reduce((a,k)=>a+xpOf(k),0)*encMult(ks.length,size);
-  const keys=fixed.slice();if(keys.length&&adj(keys)>=B*.85)return keys;
+  const keys=fixed.slice();if(keys.length&&adj(keys)>=B*.7)return keys;
   const cap=max||size+2;
   // pick a main monster whose XP lets roughly one per party member fill the budget
   const want=(B-(keys.length?adj(keys):0))/Math.max(1,size*encMult(size,size));
@@ -626,10 +626,10 @@ function encounter({mult=1,fixed=[],pool=null,max=null}={}){
   const main=pick(ranked.slice(0,3).length?ranked.slice(0,3):[P[0]]);
   let guard=0;
   while(keys.length<cap&&guard++<20){
-    const opts=[main,...shuffle(P)].filter(m=>adj([...keys,m.k])<=B*1.15);
+    const opts=[main,...shuffle(P)].filter(m=>adj([...keys,m.k])<=B*1.0);
     if(!opts.length)break;
     keys.push((Math.random()<.7&&opts.includes(main)?main:opts[0]).k);
-    if(adj(keys)>=B*.85)break;
+    if(adj(keys)>=B*.7)break;
   }
   if(!keys.length)keys.push(P.reduce((a,b)=>XP_BY_CR[a.cr]<=XP_BY_CR[b.cr]?a:b).k);
   return keys;
@@ -658,8 +658,8 @@ function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lv
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
 const DIFFS=[
   {name:'Story',tier:0,heroW:1.5,focus:0},
-  {name:'Normal',tier:1,heroW:2,focus:.15},
-  {name:'Hard',tier:2,heroW:2.5,focus:.35},
+  {name:'Normal',tier:1,heroW:2,focus:0},
+  {name:'Hard',tier:2,heroW:2.5,focus:.2},
   {name:'Deadly',tier:3,heroW:3,focus:.5},
 ];
 const diff=()=>DIFFS[G&&G.diff!=null?G.diff:1];
@@ -1333,7 +1333,7 @@ function genFloor(){
   for(const r of list){
     if(r===start)continue;
     if(r.throne){G.cur=key(r.x,r.y);r.mons.push(makeMon(chap().boss));const bx=XP_BY_CR[chap().boss.cr];const left=Math.max(0,budget(1.4)-bx*encMult(2,G.party.length));for(const k of encounter({mult:Math.max(.15,left/budget()),pool:chap().escort.map(k=>MONK[k]),max:Math.max(1,G.party.length-1)}))r.mons.push(makeMon(MONK[k]));retag(r);G.cur=key(2,2);continue}
-    if(Math.random()<.58+nComp*.06){G.cur=key(r.x,r.y);spawn(encounter());G.cur=key(2,2)}
+    if(Math.random()<.48+nComp*.05){G.cur=key(r.x,r.y);spawn(encounter());G.cur=key(2,2)}
     if(Math.random()<.28)r.items.push(newItem(pickItemKey()));
     if(Math.random()<.25){const k=pick(Object.keys(FEATURES));r.feature={k,used:false,trap:k==='chest'&&Math.random()<.4,checked:false}}
     if(Math.random()<.3)r.hidden=newItem(pickItemKey());
@@ -1342,7 +1342,7 @@ function genFloor(){
   const evIds=pickEvents();
   const spots=shuffle(list.filter(r=>r!==start&&!r.stairs&&!r.throne));
   evIds.forEach((id,i)=>{const r=spots[i];if(!r)return;r.event=id;r.mons=[];r.feature=null});
-  G.cur=key(2,2);G.prev=null;G.restUsed=false;G.farSight=false;G.ev=null;G.bless=false;G.fighting=false;
+  G.cur=key(2,2);G.prev=null;G.restUsed=false;G.rests=0;G.farSight=false;G.ev=null;G.bless=false;G.fighting=false;
   const h=H();h.charges=maxCharges();h.ward=h.cls==='wizard';h.temp=0;h.rage=0;
   for(const c of comps()){c.charges=CLASSES[ckOf(c)].abil.charges+(G.lvl>=5?1:0);c.temp=0;c.rage=0}
   G.theme=th.name;
@@ -1815,7 +1815,7 @@ function scout(){
   else{const it={k:'gold',amt:roll(2,6,G.depth)};r.items.push(it);log(`The rooms around you are quiet. In the dust you find ${itemName(it)}.`,'loot')}
 }
 function rest(){
-  G.restUsed=true;log(`The party sits with their backs to the wall and closes their eyes.`,'sys');
+  G.rests=(G.rests||0)+1;G.restUsed=G.rests>=2;log(`The party sits with their backs to the wall and closes their eyes.`,'sys');
   if(wander(.25))return;
   const full=H().cls==='fighter';
   for(const m of G.party){m.down=false;const got=full?m.maxhp-m.hp:Math.min(Math.ceil(m.maxhp/2),m.maxhp-m.hp);m.hp+=got}
@@ -1829,7 +1829,7 @@ function feature(act){
     f.used=true;
     if(f.trap){if(check('dex',12+Math.floor(G.depth/2),'Dexterity save'))log(`A needle snaps out of the lock. You jerk your hand back just in time.`,'miss');
       else{log(`A needle snaps out of the lock and stabs your hand. Poison burns up your arm.`,'hurt');E.dmg(2,6,G.depth,'a poisoned needle');if(G.over)return}}
-    const loot=[{k:'gold',amt:roll(3,6,G.depth*5)},newItem(Math.random()<.15?'potion':pickItemKey())];r.items.push(...loot);log(`The lid creaks open. Inside: ${listJoin(loot.map(itemName))}.`,'loot');mood({pip:1});
+    const loot=[{k:'gold',amt:roll(3,6,G.depth*5)},newItem(Math.random()<.3?'potion':pickItemKey())];r.items.push(...loot);log(`The lid creaks open. Inside: ${listJoin(loot.map(itemName))}.`,'loot');mood({pip:1});
   }else if(act==='fountain'){
     f.used=true;const x=Math.random();
     if(x<.6){for(const m of living()){m.hp=Math.min(m.maxhp,m.hp+roll(2,6))}log(`The water is cold and sweet. Everyone who drinks recovers 2d6 HP.`,'heal')}
@@ -1973,7 +1973,7 @@ function buildChoices(){
     }
     if(!r.searched)add('Search the room',search,{cmds:['search','search room','look around'],sub:subCheck('int',12)+' · a roll of 5 or less backfires'});
     if(r.stairs)add(chap().stairs==='up'?'Climb the stairs':'Descend the stairs',descend,{cmds:['descend','down','stairs','go down','d','climb','up','go up'],sub:`To floor ${G.depth+1}. Long rest first: full HP and abilities.`,kind:'prime'});
-    if(!G.restUsed&&G.party.some(m=>m.hp<m.maxhp))add('Take a short rest',rest,{cmds:['rest','sleep','short rest','camp'],sub:`Once per floor. ${h.cls==='fighter'?'Heals everyone to full':'Heals everyone by half'}, if nothing finds you`});
+    if(!G.restUsed&&G.party.some(m=>m.hp<m.maxhp))add('Take a short rest',rest,{cmds:['rest','sleep','short rest','camp'],sub:`${2-(G.rests||0)} of 2 left this floor. ${h.cls==='fighter'?'Heals everyone to full':'Heals everyone by half'}, if nothing finds you`});
     if(h.charges>0&&h.cls==='fighter'&&h.hp<h.maxhp)add(c.abil.name,()=>useAbility(),{cmds:['ability','second wind','f'],sub:`${h.charges} left`});
     for(const c of comps().filter(isHealer)){
       if(ckOf(c)==='cleric')for(const t of healTargets)add(`Ask ${c.name} to heal ${t.hero?'you':t===c?'themself':t.name}`,()=>compHeal(c,t),{cmds:['heal '+t.name.toLowerCase()],sub:`${t.down?'Fallen':t.hp+'/'+t.maxhp+' HP'} · 1d8${sgn(c.stats.wis+Math.floor(G.lvl/2))} · ${c.charges} left this floor`});
@@ -2063,7 +2063,7 @@ function showTitle(){
 function start(cls,name){
   const h=makeHero(cls,name);
   let pref=1;try{const v=localStorage.getItem('emberdeep-difficulty');if(v!=null)pref=+v}catch(e){}
-  G={diff:pref,depth:1,lvl:1,xp:0,turn:0,log:[],over:null,party:[h],pack:{potion:1,fire:0,map:0,weapons:[]},gold:0,kills:0,flags:{},done:[],rooms:{},cur:null,prev:null,restUsed:false,farSight:false,theme:'',ev:null,menu:null,bless:false,fighting:false};
+  G={diff:pref,depth:1,lvl:1,xp:0,turn:0,log:[],over:null,party:[h],pack:{potion:2,fire:0,map:0,weapons:[]},gold:0,kills:0,flags:{},done:[],rooms:{},cur:null,prev:null,restUsed:false,farSight:false,theme:'',ev:null,menu:null,bless:false,fighting:false};
   h.maxhp=calcMax(h);h.hp=h.maxhp;
   genFloor();
   log(`${name} lights a torch, checks their ${wname(h.weapon)}, and starts down the stairs alone.`,'sys');
