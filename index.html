@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 29</p>
+  <p class="build">Emberdeep · build 30</p>
 </div>
 
 <script>
@@ -408,6 +408,32 @@ const MONS3=[
 const BOSS2={k:'abbess',name:'Drowned Abbess',cr:9,hp:[16,10,48],ac:16,hit:9,dmg:[3,10,5],boss:true};
 const BOSS3={k:'wyrm',name:'Vharzhul the Ash Wyrm',cr:15,hp:[19,12,133],ac:18,hit:11,dmg:[2,10,7],boss:true};
 const MONK=Object.fromEntries([...MONS,...MONS2,...MONS3].map(m=>[m.k,m]));
+const SPECIAL={
+  ghoul:{cond:'paralyzed',save:'con',dc:10,rounds:1,text:'Its claws leave a creeping numbness'},
+  direwolf:{cond:'prone',save:'str',dc:13,rounds:1,text:'It drags its prey to the ground'},
+  siren:{cond:'charmed',save:'wis',dc:13,rounds:1,text:'Its song fills the head'},
+  harpy:{cond:'charmed',save:'wis',dc:11,rounds:1,text:'Its luring song tugs at the mind'},
+  abbess:{cond:'charmed',save:'wis',dc:15,rounds:1,text:'Her hymn reaches inside'},
+  deeppriest:{cond:'frightened',save:'wis',dc:14,rounds:2,text:'It speaks a word from the deep'},
+  wyvern:{cond:'poisoned',save:'con',dc:15,rounds:2,extra:[2,6],text:'Its stinger pumps in venom'},
+  seaserpent:{cond:'restrained',save:'str',dc:15,rounds:1,text:'Its coils tighten'},
+  wight:{drain:true,save:'con',dc:13},wraith:{drain:true,save:'con',dc:14},ashwight:{drain:true,save:'con',dc:14},
+  ooze:{corrode:true},
+  minotaur:{charge:[2,8]},
+  troll:{regen:5},
+  drake:{breath:{n:4,d:6,dc:14,name:'The young drake'}},
+  wyrm:{breath:{n:6,d:6,dc:16,name:'Vharzhul'}},
+};
+const COND_TEXT={paralyzed:'paralyzed',charmed:'charmed',prone:'knocked prone',frightened:'frightened',poisoned:'poisoned',restrained:'restrained'};
+const hasCond=(m,c)=>!!(m.cond&&m.cond[c]>0);
+const cantAct=m=>hasCond(m,'paralyzed')||hasCond(m,'charmed');
+const atkDis=m=>hasCond(m,'poisoned')||hasCond(m,'frightened')||hasCond(m,'restrained')||hasCond(m,'prone');
+const condList=m=>Object.entries(m.cond||{}).filter(([,v])=>v>0).map(([k])=>k);
+const saveBonus=(m,stat)=>m.stats[stat];
+function saveVs(m,stat,dc,label){const rl=roll(1,20),b=saveBonus(m,stat),tot=rl+b,ok=rl!==1&&(rl===20||tot>=dc);return{ok,det:`${stat.toUpperCase()} save d20 ${rl}${sgn(b)}=${tot} vs DC ${dc}`}}
+function addCond(t,c,rounds){t.cond=t.cond||{};t.cond[c]=Math.max(t.cond[c]||0,rounds)}
+function tickConds(){for(const p of G.party){if(!p.cond)continue;for(const k of Object.keys(p.cond)){if(p.cond[k]>0){p.cond[k]--;if(!p.cond[k])log(`${p.hero?'You are':p.name+' is'} no longer ${COND_TEXT[k]}.`,'sys')}}}}
+function fearAll(dc,who){for(const p of living()){const s=saveVs(p,'wis',dc);if(!s.ok){addCond(p,'frightened',2);log(`${p.hero?'You are':p.name+' is'} frightened of ${who}.`,'threat',s.det)}}}
 const BOSS={k:'king',name:'Hollow King',cr:7,hp:[11,10,30],ac:17,hit:8,dmg:[2,10,5],boss:true};
 
 /* ---------- items ---------- */
@@ -677,7 +703,7 @@ const comps=()=>G.party.slice(1);
 const living=()=>G.party.filter(m=>!m.down);
 const room=()=>G.rooms[G.cur];
 const prof=()=>2+Math.floor((G.lvl-1)/4);
-const ac=m=>m.acBase+(m.acb||0)+(m.armor?adef(m.armor).bonus:0)+(G.party.some(p=>!p.down&&ckOf(p)==='paladin')?(sub('devotion')&&!G.party[0].down?2:1):0)+(m.hero&&(m.sub==='valor'||m.sub==='draconic')?1:0);
+const ac=m=>m.acBase+(m.acb||0)-(m.corrode||0)+(m.armor?adef(m.armor).bonus:0)+(G.party.some(p=>!p.down&&ckOf(p)==='paladin')?(sub('devotion')&&!G.party[0].down?2:1):0)+(m.hero&&(m.sub==='valor'||m.sub==='draconic')?1:0);
 const isRogue=()=>H().cls==='rogue';
 const sneakDice=()=>Math.ceil(G.lvl/2);
 const theM=m=>m.traitor?m.name:m.boss?(m.k==='king'?'the Hollow King':m.k==='abbess'?'the Drowned Abbess':'Vharzhul'):`the ${m.tag?m.tag+' ':''}${m.name}`;
@@ -685,7 +711,7 @@ const hpWord=m=>{const f=m.hp/m.maxhp;return f>=1?'unhurt':f>.6?'scratched':f>.3
 const who=(m,you,they)=>m.hero?`You ${you}`:`${m.name} ${they}`;
 function log(text,cls='text',detail=''){G.log.push({t:'p',text,cls,detail});if(G.log.length>260)G.log.splice(0,G.log.length-260)}
 function scene(title,eyebrow,paras){G.log.push({t:'scene',title,eyebrow,paras})}
-function calcMax(m){const c=m.stats.con;return m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)}
+function calcMax(m){const c=m.stats.con;return Math.max(1,m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)-(m.drain||0))}
 function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)+(sub('bear')?1:0)}
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
 const DIFFS=[
@@ -1458,12 +1484,14 @@ function enterRoom(k){
   }
   if(r.throne&&(G.chapter||0)===2){
     r.mons.forEach(m=>m.aware=true);G.fighting=true;
+    fearAll(17,'Vharzhul');
     log(`One great eye opens, then the other. Vharzhul uncoils, and the roost shakes. \u201cThieves,\u201d says the wyrm, and the word is a wave of heat. \u201cI have burned better.\u201d`,'big');
     log('Every third round, the wyrm breathes fire over the whole party. A Dexterity save halves it.','threat');
     return;
   }
   if(r.throne){
     r.mons.forEach(m=>m.aware=true);G.fighting=true;
+    fearAll(13,'the Hollow King');
     log(`The Hollow King rises. Two embers burn where his eyes should be. “Another one,” he says, in a voice like a closing tomb, and draws a black sword.`,'big');
     log(E.has('kingsbane')?'Kingsbane hums in its scabbard. It knows him.':'As you watch, an old wound in his side closes by itself. Fire, the old king wrote. Fire stops him mending.','threat');
     return;
@@ -1481,7 +1509,7 @@ function enterRoom(k){
 function move(dk){const k=room().exits[dk];if(k)enterRoom(k)}
 function descend(){
   milestone(THRESH[Math.min(G.lvl,15)-1][3],`Floor ${G.depth} cleared.`);
-  for(const m of G.party){m.down=false;m.hp=m.maxhp}
+  for(const m of G.party){m.down=false;m.drain=0;m.corrode=0;m.cond={};m.maxhp=calcMax(m);m.hp=m.maxhp}
   log(`You make camp at the top of the stairs and take a long rest. Everyone wakes with full HP, and abilities are restored.`,'heal');
   G.depth++;genFloor();
   log(chap().stairs==='up'?`You lead the party up the winding stair. The wind grows hotter and the air thinner.`:(G.chapter||0)===1?`You lead the party down the stairs into colder, deeper water.`:`You lead the party down the stairs. The air grows ${G.depth>=7?'hot and dry':G.depth>=5?'still and dry':'colder and wetter'}.`,'sys');
@@ -1500,13 +1528,13 @@ function wander(chance){
 }
 
 /* ---------- combat ---------- */
-function d20(adv){const a=roll(1,20);if(!adv)return{r:a,t:`d20 ${a}`};const b=roll(1,20);return{r:Math.max(a,b),t:`d20 (${a}, ${b})`}}
+function d20(adv,dis){if(adv&&dis){adv=dis=false}const a=roll(1,20);if(!adv&&!dis)return{r:a,t:`d20 ${a}`};const b=roll(1,20);return adv?{r:Math.max(a,b),t:`d20 (${a}, ${b})`}:{r:Math.min(a,b),t:`d20 (${a}, ${b}) disadvantage`}}
 const critOn20=w=>!w.crit;
 function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,blast=false,flurry=false}={}){
   const r=room(),surprise=!tgt.aware;adv=adv||surprise;
   const w=torch?{n:1,d:4,bonus:0,stat:'dex'}:blast?{n:1,d:10,bonus:0}:wdef(att.weapon),sm=torch?att.stats.dex:blast?att.stats.cha:statMod(att,att.weapon);
   const th=prof()+sm+w.bonus+(G.bless?1:0)+(att.hero&&att.sub==='valor'&&!blast?1:0);
-  const {r:rl,t}=d20(adv),tot=rl+th,critOn=w.crit||(ckOf(att)==='rogue'?19:20)-(att.hero&&att.sub==='champion'&&critOn20(w)?1:0);let crit=rl>=critOn;
+  const {r:rl,t}=d20(adv,atkDis(att)),tot=rl+th,critOn=w.crit||(ckOf(att)==='rogue'?19:20)-(att.hero&&att.sub==='champion'&&critOn20(w)?1:0);let crit=rl>=critOn;
   if(att.hero&&att.sub==='assassin'&&surprise&&!(rl===1||tot<tgt.ac))crit=true;
   r.mons.forEach(o=>o.aware=true);G.fighting=true;
   const det=`${t}${sgn(th)}=${tot} vs AC ${tgt.ac}${adv?' · advantage':''}`;
@@ -1584,19 +1612,29 @@ function pickTarget(){
 }
 function monAttack(m){
   const t=pickTarget();if(!t)return;
-  const gw=armorOf(t),dis=gw&&gw.ward&&UNDEAD.has(m.k),r1=roll(1,20),r2=dis?roll(1,20):r1;
-  const mh=monHit(m),rl=Math.min(r1,r2),tot=rl+mh-(ckOf(t)==='monk'?2:0),A=ac(t),crit=rl===20,det=`${dis?`d20 (${r1}, ${r2}) disadvantage`:`d20 ${rl}`}${sgn(mh)}=${tot} vs AC ${A}`;
+  const gw=armorOf(t),advT=hasCond(t,'prone')||hasCond(t,'restrained')||hasCond(t,'paralyzed');let dis=gw&&gw.ward&&UNDEAD.has(m.k),adv=advT;if(adv&&dis)adv=dis=false;
+  const r1=roll(1,20),r2=(dis||adv)?roll(1,20):r1;
+  const mh=monHit(m),rl=dis?Math.min(r1,r2):adv?Math.max(r1,r2):r1,tot=rl+mh-(ckOf(t)==='monk'?2:0),A=ac(t);let crit=rl===20;
+  if(hasCond(t,'paralyzed')&&rl!==1&&tot>=A)crit=true;
+  const det=`${dis?`d20 (${r1}, ${r2}) disadvantage`:adv?`d20 (${r1}, ${r2}) advantage`:`d20 ${rl}`}${sgn(mh)}=${tot} vs AC ${A}`;
   const tn=t.hero?'you':t.name;
   if(rl===1||(!crit&&tot<A)){log(`${cap(theM(m))} attacks ${tn}, but ${t.hero?'you turn':'they turn'} the blow aside.`,'miss',det);return}
   const ar=armorOf(t);
   if(ar&&ar.shroud&&!t.shroudUsed){t.shroudUsed=true;log(`${cap(theM(m))}\u2019s blow should land, but the Shroud of the Drowned ripples and it passes straight through ${t.hero?'you':t.name}.`,'magic',det);return}
   if(t.hero&&t.ward){t.ward=false;log(`${cap(theM(m))} strikes, and your arcane ward flares and absorbs the blow.`,'magic',det);return}
-  const [n,d,b0]=m.dmg,b=b0+monDmg();let dmg=Math.max(1,roll(crit?n*2:n,d,b));
+  const [n,d,b0]=m.dmg,b=b0+monDmg();let dmg=Math.max(1,roll(crit?n*2:n,d,b));const sp=SPECIAL[m.k]||{};
+  if(sp.charge&&!m.charged){m.charged=true;const c2=roll(sp.charge[0]*(crit?2:1),sp.charge[1]);dmg+=c2;log(`${cap(theM(m))} lowers its horns and charges!`,'threat',`+${c2} charge`)}
+  if(sp.extra){const e=roll(sp.extra[0],sp.extra[1]);dmg+=e}
   if(t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
   if(ar&&((ar.fire&&FIREY.has(m.k))||(ar.dragon&&DRAGONKIN.has(m.k)))){dmg=Math.max(1,Math.floor(dmg/2));log(`${ar.name} turns aside half the damage.`,'magic')}
   if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
   t.hp-=dmg;G.fightDmg=G.fightDmg||{};G.fightDmg[t.hero?'you':t.name]=(G.fightDmg[t.hero?'you':t.name]||0)+dmg;
   log(`${cap(theM(m))} ${crit?'lands a brutal blow on':'hits'} ${tn} for ${dmg} damage${crit?'!':'.'}`,t.hero?'hurt':'threat',`${det} · ${dstr(crit?n*2:n,d,b)}`);
+  if(t.hp>0){
+    if(sp.cond&&!hasCond(t,sp.cond)){const sv=saveVs(t,sp.save,sp.dc);if(!sv.ok){addCond(t,sp.cond,sp.rounds);log(`${sp.text}. ${t.hero?'You are':t.name+' is'} ${COND_TEXT[sp.cond]}!`,'threat',sv.det)}else log(`${t.hero?'You shake':t.name+' shakes'} it off.`,'sys',sv.det)}
+    if(sp.drain){const sv=saveVs(t,sp.save,sp.dc);if(!sv.ok){t.drain=(t.drain||0)+dmg;t.maxhp=Math.max(1,calcMax(t));t.hp=Math.min(t.hp,t.maxhp);log(`${cap(theM(m))} drinks the life from ${t.hero?'you':t.name}. Maximum HP drops to ${t.maxhp} until a long rest.`,'threat',sv.det)}}
+    if(sp.corrode&&!t.armor&&(t.corrode||0)<3){t.corrode=(t.corrode||0)+1;log(`The ooze\u2019s acid eats into ${t.hero?'your':t.name+'\u2019s'} armor. \u22121 AC until a long rest.`,'threat')}
+  }
   if(ar&&ar.thorns&&room().mons.includes(m)){const th=roll(1,6);log(`Thornmail\u2019s spikes bite ${theM(m)} for ${th}.`,'ally');hurt(m,th)}
   if(t.hp<=0){const over=-t.hp;t.hp=0;if(t.hero)heroDown(over,m.boss?theM(m):`a ${m.name}`);else{t.down=true;log(`${t.name} falls!`,'hurt')}}
 }
@@ -1629,6 +1667,7 @@ const isHealer=c=>!c.hero&&!c.down&&c.charges>0&&['cleric','bard'].includes(ckOf
 function compAct(c){
   const foes=room().mons;if(!foes.length)return;
   const ck=ckOf(c);if(c.charges==null)c.charges=c.heals??2;
+  if(cantAct(c)){log(`${c.name} is ${hasCond(c,'paralyzed')?'paralyzed':'charmed'} and can\u2019t act.`,'sys');return}
   const hh=H();
   if(hh.down&&!G._rescue){
     if(ck==='cleric'&&c.charges>0){G._rescue=1;compHeal(c,hh);return}
@@ -1694,18 +1733,19 @@ function compAct(c){
   attackAction(c,tgt);
 }
 function wyrmBreath(){
-  const b=room().mons.find(m=>m.k==='wyrm');if(!b)return;b.tick=(b.tick||0)+1;
-  if(b.tick%3===2){log('Vharzhul draws a breath. The air goes very still. Brace yourselves.','threat');return}
-  if(b.tick%3!==0)return;
-  log('Vharzhul breathes. A river of fire pours over the party!','big');
-  for(const m of living()){const base=roll(6,6),rl=roll(1,20),sv=rl+m.stats.dex+(m.hero&&EXPERTISE[m.cls]==='dex'?3:0),half=sv>=16;let d=half?Math.floor(base/2):base;
-    {const ar=armorOf(m);if(ar&&(ar.fire||ar.dragon))d=Math.floor(d/2)}
-    if(m.temp>0){const a=Math.min(m.temp,d);m.temp-=a;d-=a}
-    m.hp-=d;log(`${m.hero?'You':m.name} ${half?'dive aside and take':'take'} ${d} fire damage.`,m.hero?'hurt':'threat',`DEX save d20 ${rl}${sgn(sv-rl)}=${sv} vs DC 16 · 6d6${half?' halved':''}`);
-    if(m.hp<=0){const over=-m.hp;m.hp=0;if(m.hero){heroDown(over,'Vharzhul\u2019s fire');if(G.over)return;continue}m.down=true;log(`${m.name} falls!`,'hurt')}}
+  for(const b of room().mons.slice()){const br=(SPECIAL[b.k]||{}).breath;if(!br||G.over)continue;b.tick=(b.tick||0)+1;
+    if(b.tick%3===2){log(`${br.name} draws a breath. The air goes very still. Brace yourselves.`,'threat');continue}
+    if(b.tick%3!==0)continue;
+    log(`${br.name} breathes. A river of fire pours over the party!`,'big');
+    for(const m of living()){const base=roll(br.n,br.d),sv=saveVs(m,'dex',br.dc),half=sv.ok;let d=half?Math.floor(base/2):base;
+      {const ar=armorOf(m);if(ar&&(ar.fire||ar.dragon))d=Math.floor(d/2)}
+      if(m.temp>0){const a=Math.min(m.temp,d);m.temp-=a;d-=a}
+      m.hp-=d;log(`${m.hero?'You':m.name} ${half?'dive aside and take':'take'} ${d} fire damage.`,m.hero?'hurt':'threat',`${sv.det} · ${br.n}d${br.d}${half?' halved':''}`);
+      if(m.hp<=0){const over=-m.hp;m.hp=0;if(m.hero){heroDown(over,`${br.name}\u2019s fire`);if(G.over)return;continue}m.down=true;log(`${m.name} falls!`,'hurt')}}}
 }
 function bossRegen(){
   wyrmBreath();if(G.over)return;
+  for(const m of room().mons){const rg=(SPECIAL[m.k]||{}).regen;if(!rg)continue;if(m.scorched)log(`${cap(theM(m))}\u2019s burns stop it from regenerating.`,'magic');else if(m.hp<m.maxhp){const h=Math.min(rg,m.maxhp-m.hp);m.hp+=h;log(`${cap(theM(m))}\u2019s wounds close as you watch. It regains ${h} HP.`,'threat')}m.scorched=false}
   const b=room().mons.find(m=>m.k==='king');if(!b)return;
   if(b.scorched)log(`The burns keep the Hollow King’s wounds from closing.`,'magic');
   else if(b.hp<b.maxhp){const h=Math.min(6,b.maxhp-b.hp);b.hp+=h;log(`The Hollow King’s wounds knit shut. He regains ${h} HP.`,'threat')}
@@ -1721,6 +1761,7 @@ function round(){
     if(!G.over&&r.mons.length&&!G.reinforced&&comps().length>=2&&!r.throne&&Math.random()<.06*comps().length){
       G.reinforced=true;const m=spawn(encounter({mult:.25,max:1}),true)[0];
       log(`Drawn by the noise of battle, ${theM(m).replace(/^the (first |second |third |fourth |fifth )?/,'a ')} charges in to join the fight!`,'threat');}
+    tickConds();
     for(const p of G.party){const ar=armorOf(p);if(ar&&ar.regen&&!p.down&&p.hp<p.maxhp&&room().mons.length){const g=Math.min(2,p.maxhp-p.hp);p.hp+=g;log(`Lantern Mail glows. ${p.hero?'You heal':p.name+' heals'} ${g}.`,'heal')}}
     for(const p of G.party)if(p.rage>0){p.rage--;if(!p.rage)log(p.hero?'Your rage burns out.':`${p.name}\u2019s rage burns out.`,'sys')}
   }
@@ -1728,7 +1769,7 @@ function round(){
 }
 function afterFight(){
   if(H().down){const h=H();h.down=false;h.hp=Math.max(1,h.hp);G.ds=null;log('The fight is over. Your companions bind your wounds and bring you round. (1 HP)','heal')}
-  G.fighting=false;G.reinforced=false;for(const p of G.party){p.rage=0;p.shroudUsed=false;p.bmUsed=false;p.gloomUsed=false}
+  G.fighting=false;G.reinforced=false;for(const p of G.party){p.rage=0;p.shroudUsed=false;p.bmUsed=false;p.gloomUsed=false;p.cond={}}
   if(sub('abjuration')&&!H().ward){H().ward=true;log('Your Arcane Ward shimmers back into place.','magic')}
   const fd=G.fightDmg||{},tot=Object.values(fd).reduce((a,b)=>a+b,0);G.fightDmg={};
   log(tot?`The fighting is over. It cost the party ${tot} HP: ${Object.entries(fd).sort((a,b)=>b[1]-a[1]).map(([n,d])=>`${n} ${d}`).join(', ')}.`:'The fighting is over. Nobody took a scratch.','sys');
@@ -1843,7 +1884,7 @@ function win(){
 }
 function nextChapter(){
   G.chapter=(G.chapter||0)+1;G.depth=1;G.over=null;G.done=G.done.filter(id=>EVENTS[id]&&EVENTS[id].ch===undefined&&false);
-  for(const m of G.party){m.down=false;m.hp=m.maxhp}
+  for(const m of G.party){m.down=false;m.drain=0;m.corrode=0;m.cond={};m.maxhp=calcMax(m);m.hp=m.maxhp}
   G.rooms={town:{x:-1,y:-1,exits:{},mons:[],items:[],feature:null,hidden:null,visited:true,seen:true,searched:true,stairs:false,throne:false,event:null,name:'the Lantern and Key',desc:['The tavern at Ashmoor is warm and loud. A fire roars, and the smell of bread and ale is almost too much after so long underground.']}};
   G.cur='town';G.prev=null;G.theme='Ashmoor';G.ev=null;G.evQueue=[];G.menu=null;G.fighting=false;
   log(`Chapter ${G.chapter+1}: ${chap().name}`,'big');
@@ -1984,6 +2025,7 @@ function buildChoices(){
   if(G.over){add('Begin a new legend',()=>{G=null;titleState={stage:'class',cls:null};showTitle()},{cmds:['new','restart','again','new game'],kind:'prime',echo:false});return C}
   const h=H(),r=room(),aware=r.mons.filter(m=>m.aware),unaware=r.mons.filter(m=>!m.aware),c=CLASSES[h.cls];
   const healTargets=G.party.filter(m=>m.down||m.hp<m.maxhp);
+  if(!h.down&&cantAct(h)&&aware.length){add(hasCond(h,'paralyzed')?'You are paralyzed':'You are charmed',()=>log(hasCond(h,'paralyzed')?'You strain against the numbness, but your body won\u2019t move.':'You stand still, smiling, listening to the song.','sys'),{sub:'You lose this turn',kind:'fight',combat:true});return C}
   if(h.down){
     const ds=G.ds||{s:0,f:0,stable:false};
     if(aware.length){add(ds.stable?'Lie still':'Make a death saving throw',()=>deathSave(),{sub:ds.stable?'You are stable. Your companions fight on.':`d20, 10 or higher succeeds · successes ${ds.s}/3 · failures ${Math.min(3,ds.f)}/3`,kind:'fight',combat:true});return C}
@@ -2209,7 +2251,7 @@ function renderSheet(){
   S.innerHTML=`
   <div class="diff" role="group" aria-label="Difficulty">${DIFFS.map((d,i)=>`<button type="button" data-diff="${i}" class="${i===(G.diff??1)?'on':''}" aria-pressed="${i===(G.diff??1)}">${d.name}</button>`).join('')}</div>
   <div class="who"><span class="cn" style="color:${c.col}">${escHTML(h.name)}</span><span class="lv">${c.name}${subInfo(h)?' · '+subInfo(h).name.replace(/^(Path|College|Circle|Way|Oath|School) of (the )?/,''):''} · Level ${G.lvl}</span></div>
-  <div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${h.down?`Unconscious · saves ${(G.ds||{}).s||0}✓ ${Math.min(3,(G.ds||{}).f||0)}✗${(G.ds||{}).stable?' · stable':''}`:`${h.hp} / ${h.maxhp} HP`}</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
+  <div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${condList(h).length?`[${condList(h).join(', ')}] `:''}${h.down?`Unconscious · saves ${(G.ds||{}).s||0}✓ ${Math.min(3,(G.ds||{}).f||0)}✗${(G.ds||{}).stable?' · stable':''}`:`${h.hp} / ${h.maxhp} HP`}</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
   <div class="scores">${STATS.map(s=>`<div class="score"><small>${s.toUpperCase()}</small><b>${10+h.stats[s]*2}</b><em>${sgn(h.stats[s])}</em></div>`).join('')}</div>
   <dl class="stats">
     <div><dt>Armor Class</dt><dd>${ac(h)}${h.ward?' +ward':''}</dd></div>
@@ -2220,7 +2262,7 @@ function renderSheet(){
   ${h.armor?`<div class="wpn"><b class="${ARMORS[h.armor.id].mythic?'m':''}">${cap(aname(h.armor))}</b> · +${adef(h.armor).bonus} AC${ARMORS[h.armor.id].lore?`<br><span style="color:var(--muted);font-size:.8rem">${ARMORS[h.armor.id].lore.replace(/^\+\d [^.]*\. /,'')}</span>`:''}</div>`:''}
   <div class="wpn"><b class="${wd.mythic?'m':''}">${cap(wname(h.weapon))}</b> · ${wdice(h,h.weapon)}${wd.lore?`<br><span style="color:var(--muted);font-size:.8rem">${wd.lore}</span>`:''}</div>
   <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p>${subInfo(h)?`<p><b>${subInfo(h).name}:</b> ${subInfo(h).desc}</p>`:G.lvl<3?`<p style="color:var(--muted)">At level 3 you choose a subclass.</p>`:''}</div>
-  <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
+  <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}${condList(m).length?` · <span style="color:var(--blood)">${condList(m).join(', ')}</span>`:''}${m.drain?` · drained`:''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
   <div><h3>Pack <span class="hint">tap an item to use it</span></h3><ul class="pack">
     ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']].map(([k,n])=>k==='whet'&&!G.pack.whet?'':G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
     ${G.pack.weapons.map((w,i)=>`<li class="${WEAPONS[w.id].mythic?'m':''}"><button type="button" data-item="w${i}" class="${G.menu&&G.menu.item==='w'+i?'on':''}"><span>${cap(wname(w))}</span><span>${dstr(WEAPONS[w.id].n,WEAPONS[w.id].d,wdef(w).bonus)}</span></button></li>`).join('')}
