@@ -180,7 +180,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 33</p>
+  <p class="build">Emberdeep · build 34</p>
 </div>
 
 <script>
@@ -846,14 +846,33 @@ function triggerBetrayal(c){
   }
   G.evQueue=G.evQueue||[];G.evQueue.push({id:c.id==='pip'?'pip_thief':'betray',who:c.id});
 }
-function turnHostile(c){
-  G.party=G.party.filter(m=>m!==c);G.flags['traitor_'+c.id]=true;
+function makeHostile(c){
   const w=wdef(c.weapon),caster=c.role==='caster',st=WEAPONS[c.weapon.id].stat;
   const mod=caster?c.stats[ckOf(c)==='wizard'?'int':'cha']:(st==='finesse'||st==='dex')?Math.max(c.stats.dex,c.stats.str):c.stats.str;
-  const m={k:'traitor',name:c.name,traitor:true,id:c.id,hp:Math.max(c.hp,Math.ceil(c.maxhp*.6)),maxhp:c.maxhp,ac:c.acBase+(c.armor?adef(c.armor).bonus:0),armor:c.armor,hit:prof()+mod+w.bonus,
+  return {k:'traitor',name:c.name,traitor:true,id:c.id,hp:Math.max(c.hp,Math.ceil(c.maxhp*.6)),maxhp:c.maxhp,ac:c.acBase+(c.armor?adef(c.armor).bonus:0),armor:c.armor,hit:prof()+mod+w.bonus,
     dmg:caster?[G.lvl>=5?2:1,10,0]:[w.n,w.d,mod+w.bonus],xp:XP_BY_CR[[.5,1,2,3,4,5,6,7,8,9,10][Math.min(10,Math.floor(G.lvl/2))]]||100,slow:false,boss:false,aware:true,tick:0,tag:'',scorched:false,weapon:c.weapon};
-  room().mons.push(m);G.fighting=true;
 }
+function turnHostile(c){
+  G.party=G.party.filter(m=>m!==c);G.flags['traitor_'+c.id]=true;
+  room().mons.push(makeHostile(c));G.fighting=true;
+}
+// Gear a departing companion carries that is worth taking back
+const defaultWeapon=c=>CLASSES[ckOf(c)].weapon;
+const gearOf=c=>{const g=[];if(c.weapon&&(c.weapon.id!==defaultWeapon(c)||c.weapon.plus||WEAPONS[c.weapon.id].mythic))g.push(wname(c.weapon));if(c.armor)g.push(aname(c.armor));return g};
+function takeGear(c){
+  const got=[];
+  if(c.weapon&&(c.weapon.id!==defaultWeapon(c)||c.weapon.plus||WEAPONS[c.weapon.id].mythic)){G.pack.weapons.push(c.weapon);got.push(wname(c.weapon));c.weapon={id:defaultWeapon(c),plus:0}}
+  if(c.armor){(G.pack.armor=G.pack.armor||[]).push(c.armor);got.push(aname(c.armor));c.armor=null}
+  if(got.length)log(`You take back ${listJoin(got)}.`,'loot');
+}
+function addGrudge(c){
+  G.grudges=G.grudges||[];if(G.grudges.some(g=>g.id===c.id&&!g.done))return;
+  G.grudges.push({id:c.id,snap:JSON.parse(JSON.stringify(c)),since:(G.chapter||0)*10+G.depth,done:false});
+  G.flags['grudge_'+c.id]=true;
+  log(`${c.name} will not forget this.`,'threat');
+}
+function finishParting(ev){if(ev&&ev.thenRecruit){recruit(ev.thenRecruit,ev.loyalty)}}
+const dismissDC=(c,base)=>base+(c.loyalty>=8?-3:c.loyalty>=6?0:c.loyalty>=3?3:6);
 
 /* ---------- events (branching, roll-dependent encounters) ---------- */
 const E={
@@ -1273,14 +1292,32 @@ Object.assign(EVENTS,{
     s0:{fx:ev=>swapOut(0,ev)},s1:{fx:ev=>swapOut(1,ev)},s2:{fx:ev=>swapOut(2,ev)},
     no:{t:ev=>`${COMPS[ev.newId].name} nods. \u201cAnother time, then.\u201d They press a Healing Draught into your hand.`,fx:()=>{G.pack.potion++},end:true}}},
   dismiss:{special:true,repeat:true,title:'Parting ways',nodes:{
-    start:{t:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`You take ${c.name} aside. ${c.loyalty>=6?'They can tell what is coming, and they look hurt.':c.loyalty>=3?'They wait to hear what you have to say.':'They look almost relieved.'}`:''},o:[
-      {l:ev=>`Part ways with ${COMPS[ev.who].name}`,sub:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`They keep their ${wname(c.weapon)}`:''},go:'go'},
-      {l:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`Part ways, and ask for the ${wname(c.weapon)} back`:''},if:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&c.weapon.id!==COMPS[c.id].weapon},check:['cha',13],ok:'goweapon',no:'goangry'},
+    start:{t:ev=>{const c=G.party.find(m=>m.id===ev.who);if(!c)return '';const g=gearOf(c);return `You take ${c.name} aside. ${c.loyalty>=6?'They can tell what is coming, and they look hurt.':c.loyalty>=3?'They wait to hear what you have to say.':'They look almost relieved.'}${g.length?` They are carrying ${listJoin(g)}.`:''}`},o:[
+      {l:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?(gearOf(c).length?`Part ways, and let ${c.name} keep ${listJoin(gearOf(c))}`:`Part ways with ${c.name}`):''},sub:'Part as friends',go:'go'},
+      {l:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&gearOf(c).length?`Ask for ${listJoin(gearOf(c))} back`:''},if:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&gearOf(c).length},
+        sub:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`Persuasion DC ${dismissDC(c,11)} · if it fails they keep it${c.loyalty<=4?' and hold a grudge':''}`:''},go:'ask'},
+      {l:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&gearOf(c).length?`Take ${listJoin(gearOf(c))} back by force`:''},if:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&gearOf(c).length},
+        sub:ev=>{const c=G.party.find(m=>m.id===ev.who);return c?`Intimidation DC ${dismissDC(c,10)} · ${c.loyalty>=8?'they will forgive you':'they will hold a grudge'}; if it fails, they fight`:''},go:'force'},
       {l:'Change your mind',go:'stay'}]},
-    go:{t:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&c.loyalty>=6?`${c.name} clasps your arm. \u201cIt was good, walking with you. Look after yourself.\u201d They leave you a Healing Draught.`:`${COMPS[ev.who].name} shrugs, shoulders their pack, and walks away.`},fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c&&c.loyalty>=6)G.pack.potion++;leaveParty(ev.who);E.mood({'*':-1},true)},end:true},
-    goweapon:{t:ev=>`${COMPS[ev.who].name} hands it over without a word, and goes.`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c){G.pack.weapons.push(c.weapon);c.weapon={id:COMPS[c.id].weapon,plus:0}}leaveParty(ev.who)},end:true},
-    goangry:{t:ev=>`\u201cYou gave it to me,\u201d ${COMPS[ev.who].name} says coldly, and walks off with it.`,fx:ev=>{leaveParty(ev.who);E.mood({'*':-1})},end:true},
-    stay:{t:ev=>`${COMPS[ev.who].name} looks at you oddly, but says nothing.`,fx:ev=>E.mood({[ev.who]:-1}),end:true}}},
+    go:{t:ev=>{const c=G.party.find(m=>m.id===ev.who);return c&&c.loyalty>=6?`${c.name} clasps your arm. \u201cIt was good, walking with you. Look after yourself.\u201d They leave you a Healing Draught.`:`${COMPS[ev.who].name} shrugs, shoulders their pack, and walks away.`},fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c&&c.loyalty>=6)G.pack.potion++;leaveParty(ev.who);E.mood({'*':-1},true);finishParting(ev)},end:true},
+    ask:{fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(!c)return;const ok=check('persuasion',dismissDC(c,11),'Persuasion');evGo(ok?'askok':'askno')}},
+    askok:{t:ev=>`${COMPS[ev.who].name} sighs, then hands it all over. \u201cFair enough. You\u2019ll need it more than me.\u201d`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c)takeGear(c);leaveParty(ev.who);finishParting(ev)},end:true},
+    askno:{t:ev=>`\u201cYou gave it to me,\u201d ${COMPS[ev.who].name} says coldly, and walks off with it.`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c&&c.loyalty<=4)addGrudge(c);leaveParty(ev.who);E.mood({'*':-1});finishParting(ev)},end:true},
+    force:{fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(!c)return;const ok=check('intimidation',dismissDC(c,10),'Intimidation');evGo(ok?'forceok':'forceno')}},
+    forceok:{t:ev=>`${COMPS[ev.who].name} stares at you for a long moment, then drops it all at your feet${G.party.find(m=>m.id===ev.who)?.loyalty>=8?' and walks away without a word.':', and leaves with a look you won\u2019t forget.'}`,fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(c){takeGear(c);if(c.loyalty<8)addGrudge(c)}leaveParty(ev.who);E.mood({'*':-2,gruk:1});finishParting(ev)},end:true},
+    forceno:{t:ev=>G.cur==='town'?`${COMPS[ev.who].name} shoves you away and storms out of the tavern with everything.`:`${COMPS[ev.who].name}\u2019s hand goes to their weapon. \u201cYou want it? Come and take it.\u201d`,
+      fx:ev=>{const c=G.party.find(m=>m.id===ev.who);if(!c)return;E.mood({'*':-2});if(G.cur==='town'){addGrudge(c);leaveParty(ev.who);finishParting(ev);endEvent();return}turnHostile(c);G.ev.waiting=true;G.ev.after='afterfight'}},
+    afterfight:{fx:ev=>finishParting(ev),end:true},
+    stay:{t:ev=>`${COMPS[ev.who].name} looks at you oddly, but says nothing.`,fx:ev=>{E.mood({[ev.who]:-1});if(ev.thenRecruit){G.pack.potion++;log(`${COMPS[ev.thenRecruit].name} nods. \u201cAnother time, then.\u201d They press a Healing Draught into your hand.`,'loot')}},end:true}}},
+  grudge:{special:true,repeat:true,title:'An old grudge',init:ev=>{ev.who=room().grudgeWho},nodes:{
+    start:{t:ev=>{const g=(G.grudges||[]).find(x=>x.id===ev.who);if(!g)return '';const gear=gearOf(g.snap);return `${g.snap.name} steps out of the dark${gear.length?`, ${listJoin(gear)} in hand`:''}. ${gear.length?'\u201cYou tried to take what was mine and threw me out into the dark. I\u2019m still here. You won\u2019t be.\u201d':'\u201cYou stripped me and left me with nothing down here. I made it out anyway. Now it\u2019s your turn.\u201d'}${G.party.length>2?' Shapes move in the shadows behind them.':''}`},o:[
+      {l:()=>`Apologize, and pay ${payoff()} gold`,if:()=>G.gold>=payoff(),sub:'They take it and go, for good',go:'paid'},
+      {l:'Talk them down',check:['persuasion',15],ok:'calm',no:'fight'},
+      {l:'Fight',go:'fight'}]},
+    paid:{t:ev=>`${COMPS[ev.who].name} weighs the purse, spits on the floor, and is gone.`,fx:ev=>{E.gold(-payoff());resolveGrudge(ev.who)},end:true},
+    calm:{t:ev=>`You talk for a long time. At last ${COMPS[ev.who].name} lowers their weapon. \u201cWe\u2019re done. Don\u2019t come looking for me.\u201d`,fx:ev=>resolveGrudge(ev.who),end:true},
+    fight:{t:ev=>`${COMPS[ev.who].name} attacks!`,fx:ev=>{const g=(G.grudges||[]).find(x=>x.id===ev.who);if(!g)return;const c=g.snap;c.maxhp=calcMax(c);c.hp=c.maxhp;room().mons.push(makeHostile(c));
+      const allies=G.party.length>2?encounter({mult:.5,max:G.party.length-2}):[];if(allies.length)spawn(allies,true);retag(room());G.fighting=true;G.ev.waiting=true;G.ev.after=null}}}},
   tavern:{special:true,repeat:true,title:'The Lantern and Key',nodes:{
     start:{t:'The innkeeper sets down bowls of stew without being asked. Your party eats like wolves. Everyone is healed and rested.',o:[
       {l:'Visit the market',sub:'Draughts and scrolls',go:'market'},
@@ -1298,7 +1335,7 @@ Object.assign(EVENTS,{
     buyp:{fx:()=>{E.gold(-40);G.pack.potion++;log('You buy a Healing Draught.','loot')},next:'market'},
     buyf:{fx:()=>{E.gold(-30);G.pack.fire++;log('You buy a Scroll of Cinders.','loot')},next:'market'},
     buym:{fx:()=>{E.gold(-25);G.pack.map++;log('You buy a Scroll of Far Sight.','loot')},next:'market'},
-    hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},fx:ev=>{for(const id of ev.offers)logCard(previewComp(id),'Looking for work')},o:[
+    hire:{t:ev=>{ev.offers=ev.offers||shuffle(Object.keys(COMPS).filter(id=>!G.flags['grudge_'+id]&&!G.party.some(m=>m.id===id)&&!G.flags['dead_'+id]&&!G.flags['traitor_'+id])).slice(0,3);return ev.offers.length?'A few people in the tavern have heard what you did. Some of them want in.':'No one in the tavern wants to follow you down there.'},fx:ev=>{for(const id of ev.offers)logCard(previewComp(id),'Looking for work')},o:[
       {l:ev=>ev.offers&&ev.offers[0]?`Hire ${COMPS[ev.offers[0]].name}, ${compTitle(ev.offers[0])}`:'',if:ev=>ev.offers&&ev.offers[0]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[0]?`${CLASSES[compClass(ev.offers[0])].name} · values ${VALUES[ev.offers[0]]} · 25 gold`:'',go:'h0'},
       {l:ev=>ev.offers&&ev.offers[1]?`Hire ${COMPS[ev.offers[1]].name}, ${compTitle(ev.offers[1])}`:'',if:ev=>ev.offers&&ev.offers[1]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[1]?`${CLASSES[compClass(ev.offers[1])].name} · values ${VALUES[ev.offers[1]]} · 25 gold`:'',go:'h1'},
       {l:ev=>ev.offers&&ev.offers[2]?`Hire ${COMPS[ev.offers[2]].name}, ${compTitle(ev.offers[2])}`:'',if:ev=>ev.offers&&ev.offers[2]&&comps().length<MAX_COMPANIONS,sub:ev=>ev.offers&&ev.offers[2]?`${CLASSES[compClass(ev.offers[2])].name} · values ${VALUES[ev.offers[2]]} · 25 gold`:'',go:'h2'},
@@ -1309,7 +1346,7 @@ Object.assign(EVENTS,{
       {l:()=>comps()[1]?`Part ways with ${comps()[1].name}`:'',if:()=>!!comps()[1],go:'p1'},
       {l:()=>comps()[2]?`Part ways with ${comps()[2].name}`:'',if:()=>!!comps()[2],go:'p2'},
       {l:'Back to the tavern',go:'start'}]},
-    p0:{fx:()=>partAt(0),next:'start'},p1:{fx:()=>partAt(1),next:'start'},p2:{fx:()=>partAt(2),next:'start'},
+    p0:{fx:()=>queuePart(0),end:true},p1:{fx:()=>queuePart(1),end:true},p2:{fx:()=>queuePart(2),end:true},
     gear:{t:'You spread your gear out on a table.',fx:()=>{G.menu='gear'},end:true},
     leave:{t:'You settle the bill, shoulder your packs, and set out.',fx:()=>{G.depth=1;genFloor();markSeen();describe(room(),`${G.theme} · Floor 1`)},end:true}}},
   parley:{special:true,repeat:true,title:'The wyrm\u2019s children',nodes:{
@@ -1336,8 +1373,10 @@ Object.assign(EVENTS,{
 });
 function gainSub(id){const ck=compClass(id);return `Gain a ${CLASSES[ck].name.toLowerCase()} (${CLASSES[ck].abil.name})`}
 function mostLoyal(){return comps().filter(c=>c.loyalty>0).sort((a,b)=>b.loyalty-a.loyalty)[0]}
-function swapOut(i,ev){const c=comps()[i];if(!c)return;log(`You tell ${c.name} that this is where you part ways. ${c.loyalty>=6?'They take it hard, but they go.':'They shrug and go.'}`,'event');leaveParty(c.id);E.mood({'*':-1},true);recruit(ev.newId,ev.loyalty);endEvent()}
+function swapOut(i,ev){const c=comps()[i];if(!c)return;(G.evQueue=G.evQueue||[]).unshift({id:'dismiss',who:c.id,thenRecruit:ev.newId,loyalty:ev.loyalty});endEvent()}
 function hireAt(i,ev){const id=ev.offers[i];if(!id)return;if(G.gold<25){log('You can\u2019t afford to hire anyone right now. It costs 25 gold.','sys');return}E.gold(-25);recruit(id,5);ev.offers.splice(i,1)}
+function resolveGrudge(id){const g=(G.grudges||[]).find(x=>x.id===id&&!x.done);if(g)g.done=true}
+function queuePart(i){const c=comps()[i];if(!c)return;G.evQueue=G.evQueue||[];G.evQueue.unshift({id:'dismiss',who:c.id},{id:'tavern'})}
 function partAt(i){const c=comps()[i];if(!c)return;log(`You buy ${c.name} a last drink, and part ways in Ashmoor.${c.loyalty>=6?' They leave you a Healing Draught.':''}`,'event');if(c.loyalty>=6)G.pack.potion++;leaveParty(c.id)}
 function ending(kind){
   G.over={win:true,ending:kind};
@@ -1525,6 +1564,8 @@ function genFloor(){
   const evIds=pickEvents();
   const spots=shuffle(list.filter(r=>r!==start&&!r.stairs&&!r.throne));
   evIds.forEach((id,i)=>{const r=spots[i];if(!r)return;r.event=id;r.mons=[];r.feature=null});
+  const now=(G.chapter||0)*10+d,gr=(G.grudges||[]).find(g=>!g.done&&now-g.since>=2&&Math.random()<.6);
+  if(gr){const r=spots[evIds.length];if(r){r.event='grudge';r.grudgeWho=gr.id;r.mons=[];r.feature=null}}
   G.cur=key(2,2);G.prev=null;G.restUsed=false;G.rests=0;G.farSight=false;G.ev=null;G.bless=false;G.fighting=false;
   const h=H();h.charges=maxCharges();h.ward=h.cls==='wizard';h.temp=0;h.rage=0;
   for(const c of comps()){c.charges=CLASSES[ckOf(c)].abil.charges+(G.lvl>=5?1:0);c.temp=0;c.rage=0}
@@ -1674,7 +1715,7 @@ function kill(m){
       abbess:'The Drowned Abbess sinks slowly to the floor of her reef. The choir falls silent, all at once, for the first time in two hundred years. The Tide Crown drifts down into the sand.',
       wyrm:'Vharzhul rears up, roars one last gout of flame at the sky, and crashes down across his hoard. Gold slides and rings for a long time. The Sky Crown slips from his horn and rolls to your feet.'}[m.k];
     log(t,'big');r.items.push({k:chap().prize,amt:1});const drop={king:'gravewatch',abbess:'lanternmail'}[m.k];if(drop&&!ownsArmor(drop)){r.items.push({k:'armor',a:{id:drop,plus:0}});log(`Among the remains lies ${ARMORS[drop].name}.`,'mythic')}gainXP(share);return}
-  if(m.traitor){log(`${m.name} falls, and does not get up. You take back the ${wname(m.weapon)}.`,'hurt',`+${share} XP each`);G.pack.weapons.push(m.weapon);if(m.armor)(G.pack.armor=G.pack.armor||[]).push(m.armor);G.flags['dead_'+m.id]=true;gainXP(share);return}
+  if(m.traitor){resolveGrudge(m.id);log(`${m.name} falls, and does not get up. You take back the ${wname(m.weapon)}.`,'hurt',`+${share} XP each`);G.pack.weapons.push(m.weapon);if(m.armor)(G.pack.armor=G.pack.armor||[]).push(m.armor);G.flags['dead_'+m.id]=true;gainXP(share);return}
   log(`${cap(theM(m))} ${m.k==='skeleton'?'collapses into a pile of bones':m.k==='ooze'?'spreads into a harmless puddle':m.k==='wraith'?'fades with a long sigh':'falls and does not get up'}.`,'text',`CR ${crLabel(m.cr)} · +${share} XP each`);
   if(Math.random()<.35)r.items.push({k:'gold',amt:roll(1,8,G.depth*2)});
   gainXP(share);
