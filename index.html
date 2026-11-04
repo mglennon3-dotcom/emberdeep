@@ -179,7 +179,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 30</p>
+  <p class="build">Emberdeep · build 31</p>
 </div>
 
 <script>
@@ -290,6 +290,18 @@ const SUBCLASSES={
   warlock:[{id:'fiend',name:'The Fiend',desc:'When you kill an enemy, you gain temporary HP equal to your Charisma + level.'},{id:'archfey',name:'The Archfey',desc:'Enemies you hex take \u22122 to hit.'}],
   wizard:[{id:'evocation',name:'School of Evocation',desc:'Magic Missile fires one more dart.'},{id:'abjuration',name:'School of Abjuration',desc:'Your Arcane Ward comes back at the start of every fight, not just every floor.'}],
 };
+const FEATS={
+  tough:{name:'Tough',desc:'+2 maximum HP for every level you have.'},
+  lucky:{name:'Lucky',desc:'3 luck points per long rest. A missed attack or failed check is rerolled automatically.'},
+  alert:{name:'Alert',desc:'+5 to initiative. Your party almost always acts first.'},
+  gwm:{name:'Great Weapon Master',desc:'Once a turn, a hit with a heavy weapon deals extra damage equal to your proficiency bonus.'},
+  savage:{name:'Savage Attacker',desc:'Once a turn, roll your weapon damage twice and keep the higher.'},
+  healer:{name:'Healer',desc:'Healing Draughts you drink or hand out heal the maximum.'},
+  resilient:{name:'Resilient',desc:'+2 to all saving throws.'},
+  inspiring:{name:'Inspiring Leader',desc:'After each long rest, your companions gain temporary HP equal to your level + Charisma.'},
+};
+const feat=id=>G&&G.party&&G.party[0]&&(G.party[0].feats||[]).includes(id);
+const HEAVY=new Set(['greatsword','greataxe','battleaxe','warhammer','longsword','longbow','wyrmfang','thirst']);
 const sub=id=>G&&G.party&&G.party[0]&&G.party[0].sub===id;
 const subInfo=h=>h.sub?(SUBCLASSES[h.cls]||[]).find(x=>x.id===h.sub):null;
 const EXPERTISE={rogue:'dex',bard:'cha',ranger:'wis'};
@@ -429,7 +441,7 @@ const hasCond=(m,c)=>!!(m.cond&&m.cond[c]>0);
 const cantAct=m=>hasCond(m,'paralyzed')||hasCond(m,'charmed');
 const atkDis=m=>hasCond(m,'poisoned')||hasCond(m,'frightened')||hasCond(m,'restrained')||hasCond(m,'prone');
 const condList=m=>Object.entries(m.cond||{}).filter(([,v])=>v>0).map(([k])=>k);
-const saveBonus=(m,stat)=>m.stats[stat];
+const saveBonus=(m,stat)=>m.stats[stat]+(m.hero&&(m.feats||[]).includes('resilient')?2:0);
 function saveVs(m,stat,dc,label){const rl=roll(1,20),b=saveBonus(m,stat),tot=rl+b,ok=rl!==1&&(rl===20||tot>=dc);return{ok,det:`${stat.toUpperCase()} save d20 ${rl}${sgn(b)}=${tot} vs DC ${dc}`}}
 function addCond(t,c,rounds){t.cond=t.cond||{};t.cond[c]=Math.max(t.cond[c]||0,rounds)}
 function tickConds(){for(const p of G.party){if(!p.cond)continue;for(const k of Object.keys(p.cond)){if(p.cond[k]>0){p.cond[k]--;if(!p.cond[k])log(`${p.hero?'You are':p.name+' is'} no longer ${COND_TEXT[k]}.`,'sys')}}}}
@@ -711,7 +723,7 @@ const hpWord=m=>{const f=m.hp/m.maxhp;return f>=1?'unhurt':f>.6?'scratched':f>.3
 const who=(m,you,they)=>m.hero?`You ${you}`:`${m.name} ${they}`;
 function log(text,cls='text',detail=''){G.log.push({t:'p',text,cls,detail});if(G.log.length>260)G.log.splice(0,G.log.length-260)}
 function scene(title,eyebrow,paras){G.log.push({t:'scene',title,eyebrow,paras})}
-function calcMax(m){const c=m.stats.con;return Math.max(1,m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)-(m.drain||0))}
+function calcMax(m){const c=m.stats.con;return Math.max(1,m.hd+c+4+(G.lvl-1)*(Math.ceil(m.hd/2)+1+c)+(m.bonusHP||0)-(m.drain||0)+(m.hero&&(m.feats||[]).includes('tough')?2*G.lvl:0))}
 function maxCharges(){const base=CLASSES[H().cls].abil.charges;return base+(G.lvl>=4?1:0)+(G.lvl>=7?1:0)+(sub('bear')?1:0)}
 function retag(r){const counts={},seen={},ord=['first','second','third','fourth','fifth'];for(const m of r.mons)counts[m.name]=(counts[m.name]||0)+1;for(const m of r.mons){if(counts[m.name]>1){seen[m.name]=seen[m.name]||0;m.tag=ord[seen[m.name]++]}else m.tag=''}}
 const DIFFS=[
@@ -739,9 +751,11 @@ function helperFor(stat){
   let best=null;for(const c of comps()){if(c.down||c.loyalty<=1)continue;if(c.stats[stat]>=2&&(!best||c.stats[stat]>best.stats[stat]))best=c}return best;
 }
 function check(stat,dc,label){
-  const h=H(),rl=roll(1,20),m=h.stats[stat],exp=(EXPERTISE[h.cls]===stat?3:0)+(sub('lore')?2:0)+(sub('thief')&&/Search|trap/i.test(label||'')?3:0),help=helperFor(stat),hb=help?2:0;
+  const h=H();let rl=roll(1,20);const m=h.stats[stat],exp=(EXPERTISE[h.cls]===stat?3:0)+(sub('lore')?2:0)+(sub('thief')&&/Search|trap/i.test(label||'')?3:0),help=helperFor(stat),hb=help?2:0;
   const target=typeof dc==='function'?dc():dc;
-  const tot=rl+m+exp+hb,ok=rl===20||(rl!==1&&tot>=target);G._last={rl,tot,target};
+  let tot=rl+m+exp+hb,ok=rl===20||(rl!==1&&tot>=target);
+  if(!ok&&feat('lucky')&&h.luck>0){h.luck--;const r2=roll(1,20);G.log.push({t:'p',cls:'sys',text:`Lucky! You reroll the ${rl} and get a ${r2}. (${h.luck} luck left)`});rl=r2;tot=rl+m+exp+hb;ok=rl===20||(rl!==1&&tot>=target)}
+  G._last={rl,tot,target};
   const parts=[`d20 ${rl}`,sgn(m)+' '+stat.toUpperCase()];if(exp)parts.push(`${sgn(exp)} ${sub('lore')?'lore/':''}expertise`);if(help)parts.push(`+2 ${help.name}`);
   G.log.push({t:'p',cls:'roll '+(ok?'ok':'no'),text:`${label||STATNAME[stat]+' check'}: ${parts.join(' ')} = ${tot} vs ${typeof dc==='function'?'their '+target:'DC '+target}. ${rl===20?'Natural 20! ':rl===1?'Natural 1. ':''}${ok?'Success.':'Failure.'}`});
   if(ok&&stat==='int'&&G.party.some(m=>m.id==='tessaly'))mood({tessaly:1});
@@ -1330,12 +1344,31 @@ Object.assign(EVENTS,{
     leave:{t:'You leave the smith to finish it in another life.',end:true}}},
 });
 Object.assign(EVENTS,{
+  asi:{special:true,repeat:true,title:'Growing stronger',init:ev=>{ev.opts=asiOptions()},nodes:{
+    start:{t:'Your training pays off. Choose how you grow.',o:[0,1,2,3,4,5].map(i=>({
+      l:ev=>{const o=(ev.opts||[])[i];if(!o)return '';const h=H();return o.type==='stat'?`+2 ${STATNAME[o.st]} (${10+2*h.stats[o.st]} \u2192 ${12+2*h.stats[o.st]})`:`Feat: ${FEATS[o.f].name}`},
+      sub:ev=>{const o=(ev.opts||[])[i];return !o?'':o.type==='stat'?`Ability Score Improvement · modifier ${sgn(H().stats[o.st])} \u2192 ${sgn(H().stats[o.st]+1)}`:FEATS[o.f].desc},
+      go:'a'+i}))},
+    a0:{fx:ev=>takeAsi(ev.opts[0]),end:true},a1:{fx:ev=>takeAsi(ev.opts[1]),end:true},a2:{fx:ev=>takeAsi(ev.opts[2]),end:true},
+    a3:{fx:ev=>takeAsi(ev.opts[3]),end:true},a4:{fx:ev=>takeAsi(ev.opts[4]),end:true},a5:{fx:ev=>takeAsi(ev.opts[5]),end:true}}},
   subclass:{special:true,repeat:true,title:'Your path',nodes:{
     start:{t:()=>`You have grown into your calling as a ${CLASSES[H().cls].name.toLowerCase()}. It is time to choose the path you will walk.`,o:[
       {l:()=>SUBCLASSES[H().cls][0].name,sub:()=>SUBCLASSES[H().cls][0].desc,go:'p0'},
       {l:()=>SUBCLASSES[H().cls][1].name,sub:()=>SUBCLASSES[H().cls][1].desc,go:'p1'}]},
     p0:{fx:()=>chooseSub(0),end:true},p1:{fx:()=>chooseSub(1),end:true}}},
 });
+function asiOptions(){
+  const h=H(),main=CLASSES[h.cls].main,opts=[];
+  for(const st of [...new Set([main,'con','dex'])])if(h.stats[st]<5)opts.push({type:'stat',st});
+  const avail=shuffle(Object.keys(FEATS).filter(f=>!(h.feats||[]).includes(f)));
+  for(const f of avail.slice(0,3))opts.push({type:'feat',f});
+  return opts;
+}
+function takeAsi(o){
+  const h=H();
+  if(o.type==='stat'){h.stats[o.st]++;const before=h.maxhp;h.maxhp=calcMax(h);h.hp+=Math.max(0,h.maxhp-before);log(`Your ${STATNAME[o.st]} rises to ${10+2*h.stats[o.st]} (${sgn(h.stats[o.st])}).`,'big')}
+  else{h.feats=h.feats||[];h.feats.push(o.f);if(o.f==='tough'){const b=h.maxhp;h.maxhp=calcMax(h);h.hp+=h.maxhp-b}if(o.f==='lucky')h.luck=3;log(`You learn the ${FEATS[o.f].name} feat. ${FEATS[o.f].desc}`,'big')}
+}
 function chooseSub(i){const h=H(),s=SUBCLASSES[h.cls][i];h.sub=s.id;if(s.id==='bear')h.charges++;log(`You walk the ${s.name}. ${s.desc}`,'big')}
 const payoff=()=>20+G.depth*10;
 function leaveParty(id){const c=G.party.find(m=>m.id===id);if(!c)return;G.party=G.party.filter(m=>m!==c);G.flags['left_party_'+id]=true}
@@ -1502,7 +1535,7 @@ function enterRoom(k){
   if(rl!==1&&tot>=dc){log(`You move quietly. ${r.mons.length>1?'They have':'It has'} not noticed you.`,'magic',det);return}
   r.mons.forEach(m=>m.aware=true);G.fighting=true;
   log(`${cap(theM(r.mons[0]))} spots you!`,'threat',det);
-  const ip=roll(1,20,h.stats.dex),mr=roll(1,20,2);
+  const ip=roll(1,20,h.stats.dex+(feat('alert')?5:0)),mr=roll(1,20,2);
   if(ip>=mr)log(`You are quicker. Your party acts first.`,'sys',`Initiative ${ip} vs ${mr}`);
   else{log(`They are on you before you can react.`,'hurt',`Initiative ${ip} vs ${mr}`);monstersAct()}
 }
@@ -1511,7 +1544,9 @@ function descend(){
   milestone(THRESH[Math.min(G.lvl,15)-1][3],`Floor ${G.depth} cleared.`);
   for(const m of G.party){m.down=false;m.drain=0;m.corrode=0;m.cond={};m.maxhp=calcMax(m);m.hp=m.maxhp}
   log(`You make camp at the top of the stairs and take a long rest. Everyone wakes with full HP, and abilities are restored.`,'heal');
+  if(feat('lucky'))H().luck=3;
   G.depth++;genFloor();
+  if(feat('inspiring')&&comps().length){const t=G.lvl+H().stats.cha;for(const c of comps())c.temp=Math.max(c.temp||0,t);log(`Around the campfire you remind everyone why they came. Your companions gain ${t} temporary HP.`,'heal')}
   log(chap().stairs==='up'?`You lead the party up the winding stair. The wind grows hotter and the air thinner.`:(G.chapter||0)===1?`You lead the party down the stairs into colder, deeper water.`:`You lead the party down the stairs. The air grows ${G.depth>=7?'hot and dry':G.depth>=5?'still and dry':'colder and wetter'}.`,'sys');
   if(G.depth===FLOORS())log(chap().lastFloor,'big');
   markSeen();describe(room(),`${G.theme} · Floor ${G.depth}`);
@@ -1535,12 +1570,16 @@ function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,bl
   const w=torch?{n:1,d:4,bonus:0,stat:'dex'}:blast?{n:1,d:10,bonus:0}:wdef(att.weapon),sm=torch?att.stats.dex:blast?att.stats.cha:statMod(att,att.weapon);
   const th=prof()+sm+w.bonus+(G.bless?1:0)+(att.hero&&att.sub==='valor'&&!blast?1:0);
   const {r:rl,t}=d20(adv,atkDis(att)),tot=rl+th,critOn=w.crit||(ckOf(att)==='rogue'?19:20)-(att.hero&&att.sub==='champion'&&critOn20(w)?1:0);let crit=rl>=critOn;
-  if(att.hero&&att.sub==='assassin'&&surprise&&!(rl===1||tot<tgt.ac))crit=true;
+  let rr=rl,tt=tot;
+  if(att.hero&&feat('lucky')&&att.luck>0&&(rr===1||(!crit&&tt<tgt.ac))){att.luck--;const r2=roll(1,20);log(`Lucky! You reroll the ${rr} and get a ${r2}. (${att.luck} luck left)`,'sys');rr=r2;tt=rr+th;crit=rr>=critOn}
+  if(att.hero&&att.sub==='assassin'&&surprise&&!(rr===1||tt<tgt.ac))crit=true;
   r.mons.forEach(o=>o.aware=true);G.fighting=true;
-  const det=`${t}${sgn(th)}=${tot} vs AC ${tgt.ac}${adv?' · advantage':''}`;
+  const det=`${rr!==rl?`reroll d20 ${rr}`:t}${sgn(th)}=${tt} vs AC ${tgt.ac}${adv?' · advantage':''}`;
   const wn=torch?'torch':blast?'Eldritch Blast':wname(att.weapon);
-  if(rl===1||(!crit&&tot<tgt.ac)){log(blast?`Your Eldritch Blast crackles past ${theM(tgt)}.`:`${who(att,'swing','swings')} ${torch?'the torch':`${att.hero?'your':'their'} ${wn}`} at ${theM(tgt)} and ${att.hero?'miss':'misses'}.`,'miss',det);return}
+  if(rr===1||(!crit&&tt<tgt.ac)){log(blast?`Your Eldritch Blast crackles past ${theM(tgt)}.`:`${who(att,'swing','swings')} ${torch?'the torch':`${att.hero?'your':'their'} ${wn}`} at ${theM(tgt)} and ${att.hero?'miss':'misses'}.`,'miss',det);return}
   const mult=crit?2:1;let dmg=roll(w.n*mult,w.d,sm+w.bonus);const ex=[dstr(w.n*mult,w.d,sm+w.bonus)];
+  if(att.hero&&!blast&&!torch&&feat('savage')&&att.savTurn!==G.turn){att.savTurn=G.turn;const d2=roll(w.n*mult,w.d,sm+w.bonus);if(d2>dmg){dmg=d2}ex.push('savage')}
+  if(att.hero&&!blast&&!torch&&feat('gwm')&&HEAVY.has(att.weapon.id)&&att.gwmTurn!==G.turn){att.gwmTurn=G.turn;dmg+=prof();ex.push(`+${prof()} great weapon`)}
   if(w.extra){dmg+=roll(w.extra[0]*mult,w.extra[1]);ex.push(`${w.extra[0]*mult}d${w.extra[1]} ${w.extra[2]}`);if(w.extra[2]==='fire')tgt.scorched=true}
   if(w.slayer&&DRAGONKIN.has(tgt.k)){dmg+=roll(w.slayer[0]*mult,w.slayer[1]);ex.push(`${w.slayer[0]*mult}d${w.slayer[1]} dragon-slaying`)}
   if(w.undead&&UNDEAD.has(tgt.k)){dmg+=roll(w.undead[0]*mult,w.undead[1]);ex.push(`${w.undead[0]*mult}d${w.undead[1]} vs undead`)}
@@ -1597,12 +1636,12 @@ function gainXP(n){
   while(G.lvl<XPT.length&&G.xp>=XPT[G.lvl]){
     G.lvl++;const h=H(),c=CLASSES[h.cls];
     const main=c.main;
-    if(G.lvl===3||G.lvl===6||G.lvl===9)h.stats[main]++;
+    if(G.lvl===4||G.lvl===8||G.lvl===12)(G.evQueue=G.evQueue||[]).push({id:'asi'});
     for(const m of G.party){const before=m.maxhp;m.maxhp=calcMax(m);if(!m.down)m.hp+=m.maxhp-before}
     if(G.lvl===4||G.lvl===7)h.charges++;
     if(G.lvl>=3&&!h.sub&&!(G.evQueue||[]).some(q=>q.id==='subclass')){(G.evQueue=G.evQueue||[]).push({id:'subclass'})}
     if(G.lvl===5){const who=G.party.filter(m=>MARTIAL.has(ckOf(m))).map(m=>m.hero?'you':m.name);if(who.length)log(`Extra Attack! From now on ${listJoin(who)} attack${who.length===1&&who[0]!=='you'?'s':''} twice whenever ${who.length===1&&who[0]!=='you'?'they attack':'you attack'}.`,'crit')}
-    log(`The party reaches level ${G.lvl}. Everyone grows tougher.${G.lvl===3||G.lvl===6||G.lvl===9?` Your ${main.toUpperCase()} rises.`:''}${G.lvl===4||G.lvl===7?` ${c.abil.name} gains a use.`:''}`,'big');
+    log(`The party reaches level ${G.lvl}. Everyone grows tougher.${G.lvl===4||G.lvl===8||G.lvl===12?' You can improve an ability score or learn a feat.':''}${G.lvl===4||G.lvl===7?` ${c.abil.name} gains a use.`:''}`,'big');
   }
 }
 function pickTarget(){
@@ -1627,7 +1666,7 @@ function monAttack(m){
   if(sp.extra){const e=roll(sp.extra[0],sp.extra[1]);dmg+=e}
   if(t.rage>0)dmg=Math.max(1,Math.floor(dmg/2));
   if(ar&&((ar.fire&&FIREY.has(m.k))||(ar.dragon&&DRAGONKIN.has(m.k)))){dmg=Math.max(1,Math.floor(dmg/2));log(`${ar.name} turns aside half the damage.`,'magic')}
-  if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} bear form soaks up ${a} damage${t.temp?'':' and falls away'}.`,'magic')}
+  if(t.temp>0){const a=Math.min(t.temp,dmg);t.temp-=a;dmg-=a;if(a)log(`${t.hero?'Your':t.name+'\u2019s'} temporary HP soaks up ${a} damage.`,'magic')}
   t.hp-=dmg;G.fightDmg=G.fightDmg||{};G.fightDmg[t.hero?'you':t.name]=(G.fightDmg[t.hero?'you':t.name]||0)+dmg;
   log(`${cap(theM(m))} ${crit?'lands a brutal blow on':'hits'} ${tn} for ${dmg} damage${crit?'!':'.'}`,t.hero?'hurt':'threat',`${det} · ${dstr(crit?n*2:n,d,b)}`);
   if(t.hp>0){
@@ -1674,7 +1713,7 @@ function compAct(c){
     if(ck==='bard'&&c.charges>0){G._rescue=1;compSong(c);return}
     const healerComing=comps().some(o=>o!==c&&!o.down&&['cleric','bard'].includes(ckOf(o))&&o.charges>0);
     if(!healerComing){
-      if(G.pack.potion>0){G._rescue=1;G.pack.potion--;const x=roll(2,4,2+G.depth);hh.down=false;hh.hp=Math.min(hh.maxhp,x);G.ds=null;
+      if(G.pack.potion>0){G._rescue=1;G.pack.potion--;const x=feat('healer')?10+G.depth:roll(2,4,2+G.depth);hh.down=false;hh.hp=Math.min(hh.maxhp,x);G.ds=null;
         log(`${c.name} kneels beside you and pours a Healing Draught down your throat. You come to, coughing. (${hh.hp} HP)`,'heal',dstr(2,4,2+G.depth));return}
       if(G.ds&&!G.ds.stable){G._rescue=1;const rl=roll(1,20),tot=rl+c.stats.wis,det=`Medicine d20 ${rl}${sgn(c.stats.wis)}=${tot} vs DC 10`;
         if(tot>=10){G.ds.stable=true;log(`${c.name} presses down hard on your wounds and stops the bleeding. You are stable.`,'heal',det)}
@@ -1807,7 +1846,7 @@ function useAbility(target){
 }
 function blastAt(t){const beams=G.lvl>=5?2:1;for(let i=0;i<beams;i++){const tt=room().mons.includes(t)?t:room().mons[0];if(!tt)break;strike(H(),tt,{blast:true})}}
 function drink(target){
-  const t=target||H(),x=roll(2,4,2+G.depth),was=t.down;G.pack.potion--;t.down=false;const got=Math.min(x,t.maxhp-t.hp);t.hp+=got;
+  const t=target||H(),x=feat('healer')?8+2+G.depth:roll(2,4,2+G.depth),was=t.down;G.pack.potion--;t.down=false;const got=Math.min(x,t.maxhp-t.hp);t.hp+=got;
   if(!t.hero)mood({[t.id]:1},true);
   log(t.hero?`You drink a Healing Draught and recover ${got} HP.`:`You tip a Healing Draught between ${t.name}’s lips. ${was?t.name+' gets back up! ':''}+${got} HP.`,'heal',dstr(2,4,2+G.depth));
 }
@@ -2261,7 +2300,7 @@ function renderSheet(){
   </dl>
   ${h.armor?`<div class="wpn"><b class="${ARMORS[h.armor.id].mythic?'m':''}">${cap(aname(h.armor))}</b> · +${adef(h.armor).bonus} AC${ARMORS[h.armor.id].lore?`<br><span style="color:var(--muted);font-size:.8rem">${ARMORS[h.armor.id].lore.replace(/^\+\d [^.]*\. /,'')}</span>`:''}</div>`:''}
   <div class="wpn"><b class="${wd.mythic?'m':''}">${cap(wname(h.weapon))}</b> · ${wdice(h,h.weapon)}${wd.lore?`<br><span style="color:var(--muted);font-size:.8rem">${wd.lore}</span>`:''}</div>
-  <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p>${subInfo(h)?`<p><b>${subInfo(h).name}:</b> ${subInfo(h).desc}</p>`:G.lvl<3?`<p style="color:var(--muted)">At level 3 you choose a subclass.</p>`:''}</div>
+  <div class="abil"><h3>Class ability</h3><b>${c.abil.name}</b><span class="pips">${'●'.repeat(Math.max(0,h.charges))}${'○'.repeat(Math.max(0,maxCharges()-h.charges))}</span><p>${c.abil.desc} Recharges each floor.</p><p style="color:var(--muted)">${c.passive}</p>${(h.feats||[]).length?`<p><b>Feats:</b> ${h.feats.map(f=>FEATS[f].name+(f==='lucky'?` (${h.luck??0} luck)`:'')).join(', ')}</p>`:''}${subInfo(h)?`<p><b>${subInfo(h).name}:</b> ${subInfo(h).desc}</p>`:G.lvl<3?`<p style="color:var(--muted)">At level 3 you choose a subclass.</p>`:''}</div>
   <div><h3>Party · ${comps().length} of ${MAX_COMPANIONS} companions</h3><div class="party">${comps().length?comps().map(m=>`<div class="mate${m.down?' down':''}" data-mate="${m.id}" role="button" tabindex="0" title="Show ${m.name}\u2019s details"><div class="top"><span class="nm" style="color:${COMPS[m.id].col}">${m.name}</span><span class="rl">${CLASSES[ckOf(m)].name} · AC ${ac(m)}</span></div><div class="bar sm"><i style="width:${Math.max(0,m.hp/m.maxhp*100)}%"></i></div><div class="ln">${m.hp}/${m.maxhp} HP · <span class="${WEAPONS[m.weapon.id].mythic?'m':''}" style="${WEAPONS[m.weapon.id].mythic?'color:var(--mythic)':''}">${wname(m.weapon)}</span>${` · ${CLASSES[ckOf(m)].abil.name} ${'●'.repeat(Math.max(0,m.charges??0))}`}${m.temp?` · bear ${m.temp}`:''}${m.rage?' · raging':''}${condList(m).length?` · <span style="color:var(--blood)">${condList(m).join(', ')}</span>`:''}${m.drain?` · drained`:''}</div><div class="ln"><span class="loy l${m.loyalty>=6?'hi':m.loyalty>=4?'mid':'lo'}">${LOYAL_WORD(m.loyalty)}</span> · values ${VALUES[m.id]}</div></div>`).join(''):`<p class="empty">No one yet. You will meet people in the dark. Some of them are worth saving.</p>`}</div></div>
   <div><h3>Pack <span class="hint">tap an item to use it</span></h3><ul class="pack">
     ${[['potion','Healing Draught'],['fire','Scroll of Cinders'],['map','Scroll of Far Sight'],['whet','Runed Whetstone']].map(([k,n])=>k==='whet'&&!G.pack.whet?'':G.pack[k]?`<li><button type="button" data-item="${k}" class="${G.menu&&G.menu.item===k?'on':''}"><span>${n}</span><span>× ${G.pack[k]}</span></button></li>`:`<li class="zero"><span>${n}</span><span>× 0</span></li>`).join('')}
