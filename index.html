@@ -156,6 +156,7 @@ dl.stats dd{margin:0;font-family:var(--f-mono);font-size:.82rem;font-variant-num
 pre.map{margin:0;font-family:var(--f-mono);font-size:.95rem;line-height:1.15;color:var(--ink-soft);background:var(--void);border:1px solid var(--line);border-radius:3px;padding:10px;overflow-x:auto}
 pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)} pre.map .dim{color:#5c584e} pre.map .ev{color:var(--gold)}
 .legend{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);margin-top:5px}
+.insp{font-family:var(--f-mono);font-size:.74rem;color:var(--gold);letter-spacing:.04em;margin-bottom:-4px}
 .build{margin:0;font-family:var(--f-mono);font-size:.68rem;color:#5c584e;letter-spacing:.06em;text-align:right}
 .intro-sheet{font-size:.92rem;color:var(--ink-soft);margin:0}
 </style>
@@ -179,7 +180,7 @@ pre.map .me{color:var(--ember);font-weight:600} pre.map .st{color:var(--arcane)}
     </div>
     <aside class="sheet" id="sheet"></aside>
   </div>
-  <p class="build">Emberdeep · build 32</p>
+  <p class="build">Emberdeep · build 33</p>
 </div>
 
 <script>
@@ -469,7 +470,13 @@ const cantAct=m=>hasCond(m,'paralyzed')||hasCond(m,'charmed');
 const atkDis=m=>hasCond(m,'poisoned')||hasCond(m,'frightened')||hasCond(m,'restrained')||hasCond(m,'prone');
 const condList=m=>Object.entries(m.cond||{}).filter(([,v])=>v>0).map(([k])=>k);
 const saveBonus=(m,stat)=>m.stats[stat]+(profSave(m,stat)?prof():0)+(m.hero&&(m.feats||[]).includes('resilient')?2:0);
-function saveVs(m,stat,dc,label){const rl=roll(1,20),b=saveBonus(m,stat),tot=rl+b,ok=rl!==1&&(rl===20||tot>=dc);return{ok,det:`${stat.toUpperCase()} save d20 ${rl}${sgn(b)}=${tot} vs DC ${dc}`}}
+function gainInsp(why){if(!G||G.over||G.insp)return;G.insp=true;log(`\u2605 Heroic Inspiration! ${why} Use it before a roll to gain advantage.`,'crit')}
+function useInsp(){if(!G.inspArmed)return false;G.inspArmed=false;G.insp=false;return true}
+function addInsp(add){
+  if(G.inspArmed)add('Save your Inspiration for later',()=>{G.inspArmed=false;log('You hold your Inspiration in reserve.','sys')},{cmds:['save inspiration'],sub:'Your next roll will be a normal roll',echo:false});
+  else if(G.insp)add('\u2605 Use Heroic Inspiration',()=>{G.inspArmed=true;log('You feel it in your bones. Your next d20 roll has advantage.','magic')},{cmds:['inspire','inspiration','use inspiration'],sub:'Advantage on your next attack, check or save · doesn\u2019t use your turn',kind:'prime',echo:false});
+}
+function saveVs(m,stat,dc,label){const ins=m.hero&&useInsp(),a=roll(1,20),a2=ins?roll(1,20):a,rl=Math.max(a,a2),b=saveBonus(m,stat),tot=rl+b,ok=rl!==1&&(rl===20||tot>=dc);if(m.hero&&rl===20)gainInsp('A natural 20.');return{ok,det:`${stat.toUpperCase()} save ${ins?`d20 (${a}, ${a2}) inspired`:`d20 ${rl}`}${sgn(b)}=${tot} vs DC ${dc}`}}
 function addCond(t,c,rounds){t.cond=t.cond||{};t.cond[c]=Math.max(t.cond[c]||0,rounds)}
 function tickConds(){for(const p of G.party){if(!p.cond)continue;for(const k of Object.keys(p.cond)){if(p.cond[k]>0){p.cond[k]--;if(!p.cond[k])log(`${p.hero?'You are':p.name+' is'} no longer ${COND_TEXT[k]}.`,'sys')}}}}
 function fearAll(dc,who){for(const p of living()){const s=saveVs(p,'wis',dc);if(!s.ok){addCond(p,'frightened',2);log(`${p.hero?'You are':p.name+' is'} frightened of ${who}.`,'threat',s.det)}}}
@@ -790,11 +797,11 @@ function rollBonus(stat,label){
   return {b,parts,sk,ab,isSave};
 }
 function check(stat,dc,label,hint){
-  const h=H();let rl=roll(1,20);const R=rollBonus(stat,(label||'')+' '+(hint||''));
+  const h=H(),ins=useInsp();let rl=roll(1,20);if(ins){const r2=roll(1,20);G.log.push({t:'p',cls:'sys',text:`\u2605 Inspired: you roll ${rl} and ${r2}, and keep the higher.`});rl=Math.max(rl,r2)}const R=rollBonus(stat,(label||'')+' '+(hint||''));
   const target=typeof dc==='function'?dc():dc;
   let tot=rl+R.b,ok=rl===20||(rl!==1&&tot>=target);
   if(!ok&&feat('lucky')&&h.luck>0){h.luck--;const r2=roll(1,20);G.log.push({t:'p',cls:'sys',text:`Lucky! You reroll the ${rl} and get a ${r2}. (${h.luck} luck left)`});rl=r2;tot=rl+R.b;ok=rl===20||(rl!==1&&tot>=target)}
-  G._last={rl,tot,target};
+  G._last={rl,tot,target};if(rl===20)gainInsp('A natural 20.');
   const name=label&&!/check$/.test(label)?label:R.isSave?`${STATNAME[R.ab]} save`:R.sk?`${SKILL_NAME[R.sk]} (${STATNAME[R.ab]})`:`${STATNAME[R.ab]} check`;
   G.log.push({t:'p',cls:'roll '+(ok?'ok':'no'),text:`${name}: d20 ${rl} ${R.parts.join(' ')} = ${tot} vs ${typeof dc==='function'?'their '+target:'DC '+target}. ${rl===20?'Natural 20! ':rl===1?'Natural 1. ':''}${ok?'Success.':'Failure.'}`});
   if(ok&&R.ab==='int'&&G.party.some(m=>m.id==='tessaly'))mood({tessaly:1});
@@ -825,6 +832,7 @@ function mood(map,quiet=false){
   for(const c of comps()){
     let d=map[c.id];if(d==null)d=map['*'];if(!d)continue;
     if(c.loyalty==null)c.loyalty=6;const before=c.loyalty;c.loyalty=Math.max(-3,Math.min(10,c.loyalty+d));
+    if(!quiet&&d>1)gainInsp(`${c.name}\u2019s respect lifts your spirit.`);
     if(!quiet)log(`${c.name} ${d>0?(d>1?'approves strongly':'approves'):(d<-1?'is furious':'disapproves')}.`,d>0?'heal':'threat',`loyalty ${before} → ${c.loyalty}`);
     if(c.loyalty<=2&&before>2&&c.loyalty>0)log(`${c.name} has gone very quiet. Something is wrong.`,'hurt');
     if(c.loyalty<=0&&!c.betraying)triggerBetrayal(c);
@@ -1605,7 +1613,7 @@ function wander(chance){
 function d20(adv,dis){if(adv&&dis){adv=dis=false}const a=roll(1,20);if(!adv&&!dis)return{r:a,t:`d20 ${a}`};const b=roll(1,20);return adv?{r:Math.max(a,b),t:`d20 (${a}, ${b})`}:{r:Math.min(a,b),t:`d20 (${a}, ${b}) disadvantage`}}
 const critOn20=w=>!w.crit;
 function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,blast=false,flurry=false}={}){
-  const r=room(),surprise=!tgt.aware;adv=adv||surprise;
+  const r=room(),surprise=!tgt.aware;adv=adv||surprise||(att.hero&&!blast&&!torch&&useInsp())||(att.hero&&blast&&useInsp());
   const w=torch?{n:1,d:4,bonus:0,stat:'dex'}:blast?{n:1,d:10,bonus:0}:wdef(att.weapon),sm=torch?att.stats.dex:blast?att.stats.cha:statMod(att,att.weapon);
   const th=prof()+sm+w.bonus+(G.bless?1:0)+(att.hero&&att.sub==='valor'&&!blast?1:0);
   const {r:rl,t}=d20(adv,atkDis(att)),tot=rl+th,critOn=w.crit||(ckOf(att)==='rogue'?19:20)-(att.hero&&att.sub==='champion'&&critOn20(w)?1:0);let crit=rl>=critOn;
@@ -1615,6 +1623,7 @@ function strike(att,tgt,{adv=false,sneak=0,mark=false,torch=false,smite=false,bl
   r.mons.forEach(o=>o.aware=true);G.fighting=true;
   const det=`${rr!==rl?`reroll d20 ${rr}`:t}${sgn(th)}=${tt} vs AC ${tgt.ac}${adv?' · advantage':''}`;
   const wn=torch?'torch':blast?'Eldritch Blast':wname(att.weapon);
+  if(att.hero&&rr===20)gainInsp('A natural 20.');
   if(rr===1||(!crit&&tt<tgt.ac)){log(blast?`Your Eldritch Blast crackles past ${theM(tgt)}.`:`${who(att,'swing','swings')} ${torch?'the torch':`${att.hero?'your':'their'} ${wn}`} at ${theM(tgt)} and ${att.hero?'miss':'misses'}.`,'miss',det);return}
   const mult=crit?2:1;let dmg=roll(w.n*mult,w.d,sm+w.bonus);const ex=[dstr(w.n*mult,w.d,sm+w.bonus)];
   if(att.hero&&!blast&&!torch&&feat('savage')&&att.savTurn!==G.turn){att.savTurn=G.turn;const d2=roll(w.n*mult,w.d,sm+w.bonus);if(d2>dmg){dmg=d2}ex.push('savage')}
@@ -1920,7 +1929,7 @@ function heroDown(over,by){
 function deathSave(){
   const h=H(),ds=G.ds||(G.ds={s:0,f:0,stable:false,by:'your wounds'});
   if(ds.stable){log('You lie still. Unconscious, but stable.','sys');return}
-  const rl=roll(1,20);
+  let rl=roll(1,20);if(useInsp()){const r2=roll(1,20);log(`\u2605 Inspired: you roll ${rl} and ${r2}, and keep the higher.`,'sys');rl=Math.max(rl,r2)}
   if(rl===20){h.down=false;h.hp=1;G.ds=null;log('Natural 20! You gasp awake and stagger to your feet with 1 HP.','crit','death save d20 20');return}
   if(rl>=10)ds.s++;else ds.f+=(rl===1?2:1);
   log(`Death saving throw: ${rl>=10?'success':'failure'}${rl===1?'. A natural 1 counts as two failures':''}.`,rl>=10?'heal':'hurt',`d20 ${rl} vs 10 · successes ${ds.s}/3 · failures ${Math.min(3,ds.f)}/3`);
@@ -1966,6 +1975,7 @@ function nextChapter(){
   G.rooms={town:{x:-1,y:-1,exits:{},mons:[],items:[],feature:null,hidden:null,visited:true,seen:true,searched:true,stairs:false,throne:false,event:null,name:'the Lantern and Key',desc:['The tavern at Ashmoor is warm and loud. A fire roars, and the smell of bread and ale is almost too much after so long underground.']}};
   G.cur='town';G.prev=null;G.theme='Ashmoor';G.ev=null;G.evQueue=[];G.menu=null;G.fighting=false;
   log(`Chapter ${G.chapter+1}: ${chap().name}`,'big');
+  gainInsp('A new adventure begins.');
   describe(room(),'Between adventures');
   log(chap().intro,'event');
   startEvent('tavern');
@@ -2108,7 +2118,7 @@ function buildChoices(){
   if(!h.down&&cantAct(h)&&aware.length){add(hasCond(h,'paralyzed')?'You are paralyzed':'You are charmed',()=>log(hasCond(h,'paralyzed')?'You strain against the numbness, but your body won\u2019t move.':'You stand still, smiling, listening to the song.','sys'),{sub:'You lose this turn',kind:'fight',combat:true});return C}
   if(h.down){
     const ds=G.ds||{s:0,f:0,stable:false};
-    if(aware.length){add(ds.stable?'Lie still':'Make a death saving throw',()=>deathSave(),{sub:ds.stable?'You are stable. Your companions fight on.':`d20, 10 or higher succeeds · successes ${ds.s}/3 · failures ${Math.min(3,ds.f)}/3`,kind:'fight',combat:true});return C}
+    if(aware.length){if(!ds.stable)addInsp(add);add(ds.stable?'Lie still':'Make a death saving throw',()=>deathSave(),{sub:ds.stable?'You are stable. Your companions fight on.':`d20, 10 or higher succeeds · successes ${ds.s}/3 · failures ${Math.min(3,ds.f)}/3`,kind:'fight',combat:true});return C}
     h.down=false;h.hp=Math.max(1,h.hp);G.ds=null;
   }
   if(G.menu&&G.menu.type==='item'){itemChoices(add,aware.length>0);return C}
@@ -2161,6 +2171,7 @@ function buildChoices(){
     }
     if(G.pack.fire>0)add('Read the Scroll of Cinders',readCinders,{cmds:['read cinders','cinders','fire','burn'],sub:'3d6 fire to every foe here',combat:true});
     const fallen=comps().filter(t=>t.down).length;
+    addInsp(add);
     add('Flee',()=>{if(!flee())round()},{cmds:['flee','run','escape','retreat'],sub:fallen?'Fallen allies will be left behind!':'Run back the way you came'});
     return C;
   }
@@ -2170,12 +2181,14 @@ function buildChoices(){
       if(o.if&&!o.if(G.ev))continue;
       const label=txt(o.l,G.ev);
       if(!label)continue;
+      if(o.check&&!C.some(x=>/Inspiration/.test(x.label)))addInsp(add);
       add(label,()=>{if(o.check){const ok=check(o.check[0],o.check[1],o.check[2],label);evGo(ok?o.ok:o.no)}else evGo(o.go)},{sub:o.check?(o.sub?txt(o.sub,G.ev)+' · ':'')+subCheck(o.check[0],o.check[1],(o.check[2]||'')+' '+label):(txt(o.sub,G.ev)||''),kind:'ev'});
     }
     return C;
   }
   if(G.cur==='town'){
     add('Back to the tavern',()=>startEvent('tavern'),{cmds:['tavern','back','continue'],kind:'prime',echo:false});
+    addInsp(add);
     add('Pack & party',()=>{G.menu='gear'},{cmds:['gear','party','equip','pack','inventory gear'],sub:packSummary(),echo:false});
     return C;
   }
@@ -2214,6 +2227,7 @@ function buildChoices(){
     if(h.charges>0&&h.cls==='cleric')for(const t of healTargets)add(`Healing Word on ${t.hero?'yourself':t.name}`,()=>useAbility(t),{cmds:['heal '+t.name.toLowerCase()],sub:`${t.hp}/${t.maxhp} HP. ${h.charges} left`});
     if(G.pack.potion>0&&h.hp<h.maxhp)add('Drink a Healing Draught',()=>drink(),{cmds:['drink','potion','quaff','heal'],sub:`${G.pack.potion} in your pack`});
     if(h.charges>0&&h.cls==='bard'&&G.party.some(m=>m.hp<m.maxhp))add('Sing the Song of Courage',()=>useAbility(),{cmds:['sing','song','ability'],sub:`Heal everyone, +1 to hit this floor. ${h.charges} left`});
+    addInsp(add);
     add('Pack & party',()=>{G.menu='gear'},{cmds:['gear','party','equip','pack','inventory gear'],sub:packSummary(),echo:false});
   }
   if(G.pack.map>0&&!G.farSight)add('Read the Scroll of Far Sight',readFarSight,{cmds:['read far sight','far sight','read map'],sub:'Reveal this floor on your map'});
@@ -2331,7 +2345,7 @@ function renderSheet(){
   S.innerHTML=`
   <div class="diff" role="group" aria-label="Difficulty">${DIFFS.map((d,i)=>`<button type="button" data-diff="${i}" class="${i===(G.diff??1)?'on':''}" aria-pressed="${i===(G.diff??1)}">${d.name}</button>`).join('')}</div>
   <div class="who"><span class="cn" style="color:${c.col}">${escHTML(h.name)}</span><span class="lv">${c.name}${subInfo(h)?' · '+subInfo(h).name.replace(/^(Path|College|Circle|Way|Oath|School) of (the )?/,''):''} · Level ${G.lvl}</span></div>
-  <div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${condList(h).length?`[${condList(h).join(', ')}] `:''}${h.down?`Unconscious · saves ${(G.ds||{}).s||0}✓ ${Math.min(3,(G.ds||{}).f||0)}✗${(G.ds||{}).stable?' · stable':''}`:`${h.hp} / ${h.maxhp} HP`}</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
+  ${G.insp?`<div class="insp">\u2605 Heroic Inspiration${G.inspArmed?' · ready on your next roll':''}</div>`:''}<div class="bars"><div class="bar"><i style="width:${Math.max(0,h.hp/h.maxhp*100)}%"></i><span>${condList(h).length?`[${condList(h).join(', ')}] `:''}${h.down?`Unconscious · saves ${(G.ds||{}).s||0}✓ ${Math.min(3,(G.ds||{}).f||0)}✗${(G.ds||{}).stable?' · stable':''}`:`${h.hp} / ${h.maxhp} HP`}</span></div><div class="bar xp" title="${G.xp} XP"><i style="width:${xpPct}%"></i></div></div>
   <div class="scores">${STATS.map(s=>`<div class="score"><small>${s.toUpperCase()}</small><b>${10+h.stats[s]*2}</b><em>${sgn(h.stats[s])}</em></div>`).join('')}</div>
   <dl class="stats">
     <div><dt>Armor Class</dt><dd>${ac(h)}${h.ward?' +ward':''}</dd></div>
